@@ -64,9 +64,9 @@ jobs:
           ln -sfn "$ANDROID_HOME" "$HOME/Android/Sdk"
           echo "sdk.dir=$ANDROID_HOME" > local.properties
 
-      - name: Cache ffmpeg
+      - name: Restore ffmpeg cache
         id: ffmpeg-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: ~/ffmpeg
           key: ffmpeg-${{ steps.versions.outputs.ndk }}-${{ steps.versions.outputs.min_sdk }}-${{ hashFiles('native/ffmpeg.sh', 'native/okhttp.c', 'native/okhttp.patch', 'native/src/main/jni/build_ffmpeg.sh') }}
@@ -78,6 +78,14 @@ jobs:
           chmod +x ffmpeg.sh src/main/jni/build_ffmpeg.sh
           echo "${{ steps.versions.outputs.min_sdk }}" | ./ffmpeg.sh
           ls -R "$HOME/ffmpeg/android-libs"
+
+      # Saved right away so a later Gradle failure does not discard it.
+      - name: Save ffmpeg cache
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/ffmpeg
+          key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
 
       # README "Variant 2": build :native from source instead of compiled_native.
       # Applied only in CI, never committed.
@@ -106,7 +114,9 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
 
       - name: Assemble fenrir debug APK
-        run: ./gradlew :app_fenrir:assembleFenrirDebug --stacktrace
+        run: |
+          chmod +x gradlew
+          ./gradlew :app_fenrir:assembleFenrirDebug --stacktrace
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
