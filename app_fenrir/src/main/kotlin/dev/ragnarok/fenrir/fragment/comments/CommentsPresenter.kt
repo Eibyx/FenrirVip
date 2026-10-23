@@ -276,16 +276,19 @@ class CommentsPresenter(
         val first = firstCommentInList ?: return
         val accountId = authorId
         setLoadingState(LoadingState.UP)
+        // board.getComments ignores sort=desc together with start_comment_id, so older topic
+        // comments never arrive. Ask for the COUNT comments before the first one in asc order.
+        val topic = commented.sourceType == CommentedType.TOPIC
         actualLoadingDisposable.add(
             interactor.getCommentsPortion(
                 accountId,
                 commented,
-                1,
+                if (topic) -COUNT else 1,
                 COUNT,
                 first.getObjectId(),
                 commentThread,
                 false,
-                "desc"
+                if (topic) "asc" else "desc"
             )
                 .fromIOToMain(
                     { bundle -> onCommentsPortionPortionReceived(bundle) }
@@ -323,10 +326,17 @@ class CommentsPresenter(
         val comments = bundle.comments
         when (loadingState) {
             LoadingState.UP -> {
-                data.addAll(comments)
-                view?.notifyDataAddedToTop(
-                    comments.size
-                )
+                // keep only comments older than the current first one, newest first (list order)
+                val firstId = firstCommentInList?.getObjectId()
+                val older = comments
+                    .filter { firstId == null || it.getObjectId() < firstId }
+                    .sortedByDescending { it.getObjectId() }
+                if (older.isNotEmpty()) {
+                    data.addAll(older)
+                    view?.notifyDataAddedToTop(
+                        older.size
+                    )
+                }
             }
 
             LoadingState.DOWN -> {
