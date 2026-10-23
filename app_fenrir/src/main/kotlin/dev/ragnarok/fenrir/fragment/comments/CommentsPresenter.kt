@@ -81,6 +81,10 @@ class CommentsPresenter(
     private var author: Owner? = null
     private var directionDesc = Settings.get().main().isCommentsDesc
     private var loadingState = 0
+
+    // true when the list was loaded from one end of the thread (not around a focused comment),
+    // so topic pages can be requested by plain offset
+    private var pagedFromStart = false
     private var adminLevel = 0
     private var draftCommentText: String? = null
     private var draftCommentAttachmentsCount = 0
@@ -216,6 +220,7 @@ class CommentsPresenter(
 
     private fun requestInitialData() {
         val accountId = authorId
+        pagedFromStart = focusToComment == null
         val single: Flow<CommentsBundle> = when {
             focusToComment != null -> {
                 interactor.getCommentsPortion(
@@ -278,17 +283,22 @@ class CommentsPresenter(
         setLoadingState(LoadingState.UP)
         // board.getComments ignores sort=desc together with start_comment_id, so older topic
         // comments never arrive. Ask for the COUNT comments before the first one in asc order.
-        val topic = commented.sourceType == CommentedType.TOPIC
+        val topic = isTopic
+        val byOffset = topic && pagedFromStart && directionDesc
         actualLoadingDisposable.add(
             interactor.getCommentsPortion(
                 accountId,
                 commented,
-                if (topic) -COUNT else 1,
+                when {
+                    byOffset -> data.size
+                    topic -> -COUNT
+                    else -> 1
+                },
                 COUNT,
-                first.getObjectId(),
+                if (byOffset) null else first.getObjectId(),
                 commentThread,
                 false,
-                if (topic) "asc" else "desc"
+                if (topic && !byOffset) "asc" else "desc"
             )
                 .fromIOToMain(
                     { bundle -> onCommentsPortionPortionReceived(bundle) }
@@ -300,13 +310,16 @@ class CommentsPresenter(
         val last = lastCommentInList ?: return
         val accountId = authorId
         setLoadingState(LoadingState.DOWN)
+        // board.getComments doesn't page forward reliably from start_comment_id; when the topic was
+        // loaded from its beginning, ask for the next page by offset instead
+        val byOffset = isTopic && pagedFromStart && !directionDesc
         actualLoadingDisposable.add(
             interactor.getCommentsPortion(
                 accountId,
                 commented,
-                0,
+                if (byOffset) data.size else 0,
                 COUNT,
-                last.getObjectId(),
+                if (byOffset) null else last.getObjectId(),
                 commentThread,
                 false,
                 "asc"
@@ -339,7 +352,19 @@ class CommentsPresenter(
                 }
             }
 
-            LoadingState.DOWN -> {
+            LoadingState.DOWN -> if (isTopic) {
+                // keep only comments newer than the current last one, newest first (list order)
+                val lastId = lastCommentInList?.getObjectId()
+                val newer = comments
+                    .filter { lastId == null || it.getObjectId() > lastId }
+                    .sortedByDescending { it.getObjectId() }
+                if (newer.isNotEmpty()) {
+                    data.addAll(0, newer)
+                    view?.notifyDataAddedToBottom(
+                        newer.size
+                    )
+                }
+            } else {
                 if (comments.nonNullNoEmpty()) {
                     comments.removeAt(comments.size - 1) // последним комментарием приходит комментарий к кодом, который был передан в startCommentId
                 }
@@ -475,6 +500,9 @@ class CommentsPresenter(
             val last = lastCommentInList
             return last?.getObjectId().orZero() < commentedState?.lastCommentId.orZero()
         }
+    private val isTopic: Boolean
+        get() = commented.sourceType == CommentedType.TOPIC
+
     private val firstCommentInList: Comment?
         get() = if (data.nonNullNoEmpty()) data[data.size - 1] else null
 
