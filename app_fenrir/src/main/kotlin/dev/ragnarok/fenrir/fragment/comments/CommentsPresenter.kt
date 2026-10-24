@@ -228,6 +228,7 @@ class CommentsPresenter(
             // Direction changes may arrive while a page is in flight. Keep its offsets
             // in the cancelled generation rather than mutating the new scan.
             actualLoadingDisposable.clear()
+            cacheLoadingDisposable.clear()
             topicPager = TopicCommentsPager()
             view?.setToolbarSubtitle(getString(R.string.for_topic))
         }
