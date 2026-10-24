@@ -1242,6 +1242,7 @@ class CommentsPresenter(
             CommentedType.VIDEO -> viewHost.setToolbarSubtitle(getString(R.string.for_video))
             CommentedType.TOPIC -> viewHost.setToolbarSubtitle(getString(R.string.for_topic))
         }
+        resolveTopicPosition()
         resolveCanSendAsAdminView()
         resolveReplyViews()
         checkFocusToCommentDone()
