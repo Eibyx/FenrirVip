@@ -47,6 +47,11 @@ jobs:
           echo "ndk=$(get appNdk)" >> "$GITHUB_OUTPUT"
           echo "cmake=$(get appCMake)" >> "$GITHUB_OUTPUT"
           echo "min_sdk=$(get appMinSDKNotDevelop)" >> "$GITHUB_OUTPUT"
+          if [ "$(get developerBuild)" = true ]; then
+            echo "abis=$(get targetAbiDevelop)" >> "$GITHUB_OUTPUT"
+          else
+            echo "abis=$(get targetAbiNotDevelop)" >> "$GITHUB_OUTPUT"
+          fi
           cat "$GITHUB_OUTPUT"
 
       - name: Test topic pagination
@@ -127,6 +132,25 @@ jobs:
           chmod +x gradlew
           ./gradlew :native:assembleDebug :app_fenrir:assembleFenrirDebug --stacktrace --max-workers=4
 
+      - name: Validate debug APK
+        run: |
+          APK_DIR=app_fenrir/build/outputs/apk/fenrir/debug
+          mapfile -t APKS < <(find "$APK_DIR" -maxdepth 1 -name '*.apk' -type f)
+          test "${#APKS[@]}" -eq 1
+          APK="${APKS[0]}"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/${{ steps.versions.outputs.build_tools }}"
+          unzip -t "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" > "$APK_DIR/apk-validation.txt"
+          grep -q "package: name='dev.ragnarok.fenrir'" "$APK_DIR/apk-validation.txt"
+          unzip -Z1 "$APK" > "$APK_DIR/apk-entries.txt"
+          IFS=',' read -ra ABIS <<< "${{ steps.versions.outputs.abis }}"
+          for ABI in "${ABIS[@]}"; do
+            grep -Fx "lib/$ABI/libfenrir_jni.so" "$APK_DIR/apk-entries.txt"
+          done
+          sha256sum "$APK" >> "$APK_DIR/apk-validation.txt"
+          cat "$APK_DIR/apk-validation.txt"
+
       - name: Upload native AAR
         uses: actions/upload-artifact@v4
         with:
@@ -143,6 +167,7 @@ jobs:
             pagination-tests/build/test-results/
             pagination-tests/build/reports/
             build/reports/
+            app_fenrir/build/outputs/apk/fenrir/debug/apk-validation.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
