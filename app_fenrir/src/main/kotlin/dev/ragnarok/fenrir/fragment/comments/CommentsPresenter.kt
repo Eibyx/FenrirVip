@@ -332,25 +332,19 @@ class CommentsPresenter(
         setLoadingState(state)
         actualLoadingDisposable.add(
             flow {
-                // A focused initial page can overlap pages scanned from either end.
-                // Consume those raw pages rather than requesting the same cursor forever.
-                do {
+                var response: CommentsBundle? = null
+                val page = topicPager.load(sort, loadedIds, { it: Comment -> it.getObjectId() }) { offset ->
                     val bundle = interactor.getCommentsPortion(
-                        authorId, commented, topicPager.offset(sort), COUNT,
+                        authorId, commented, offset, COUNT,
                         null, commentThread, false, sort
                     ).single()
-                    val fresh = topicPager.fresh(bundle.comments, loadedIds) { it.getObjectId() }
-                    topicPager.received(
-                        sort, bundle.rawCount, bundle.totalCount,
-                        bundle.comments.map { it.getObjectId() }
-                    )
-                    if (fresh.isNotEmpty() || !topicPager.hasMore(sort)) {
-                        bundle.comments.clear()
-                        bundle.comments.addAll(fresh)
-                        emit(bundle)
-                        break
-                    }
-                } while (topicPager.hasMore(sort))
+                    response = bundle
+                    TopicCommentsPager.Page(bundle.comments.toList(), bundle.totalCount)
+                }
+                val bundle = checkNotNull(response)
+                bundle.comments.clear()
+                bundle.comments.addAll(page.items)
+                emit(bundle)
             }.fromIOToMain({ onCommentsPortionPortionReceived(it) }) {
                 onCommentPortionError(it)
             }

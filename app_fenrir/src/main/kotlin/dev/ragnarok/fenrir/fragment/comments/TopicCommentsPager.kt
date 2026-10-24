@@ -6,6 +6,24 @@ internal class TopicCommentsPager {
     private val previousPages = mutableMapOf<String, List<Int>>()
     private val finished = mutableSetOf<String>()
 
+    data class Page<T>(val items: List<T>, val total: Int)
+
+    suspend fun <T> load(
+        sort: String,
+        loadedIds: Set<Int>,
+        id: (T) -> Int,
+        request: suspend (Int) -> Page<T>
+    ): Page<T> {
+        check(hasMore(sort)) { "Topic pagination has reached the end" }
+        do {
+            val page = request(offset(sort))
+            val fresh = fresh(page.items, loadedIds, id)
+            received(sort, page.items.size, page.total, page.items.map(id))
+            if (fresh.isNotEmpty() || !hasMore(sort)) return Page(fresh, page.total)
+        } while (hasMore(sort))
+        error("Topic pagination made no progress")
+    }
+
     fun <T> fresh(items: List<T>, loadedIds: Set<Int>, id: (T) -> Int): List<T> {
         val seen = HashSet(loadedIds)
         return items.filter { seen.add(id(it)) }

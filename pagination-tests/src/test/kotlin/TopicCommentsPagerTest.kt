@@ -2,6 +2,8 @@ package dev.ragnarok.fenrir.fragment.comments
 
 import org.junit.Assert.*
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
+import java.io.IOException
 
 class TopicCommentsPagerTest {
     @Test fun repeatedCursorAndDuplicatesPreserveAllOtherIds() {
@@ -71,13 +73,53 @@ class TopicCommentsPagerTest {
         assertFalse(pager.hasMore("desc"))
     }
 
-    @Test fun apiFailureDoesNotCommitOffset() {
+    @Test fun apiFailureDoesNotCommitOffset() = runBlocking {
         val pager = TopicCommentsPager()
-        pager.initial("asc", 20, 60, false)
-        // Failed requests never call received (the production Flow propagates the exception).
-        assertEquals(20, pager.offset("asc"))
-        pager.received("asc", 20, 60)
-        assertEquals(40, pager.offset("asc"))
+        pager.initial("asc", 2, 4, false)
+        val offsets = mutableListOf<Int>()
+        try {
+            pager.load("asc", setOf(10, 20), { it: Int -> it }) { offset ->
+                offsets.add(offset)
+                throw IOException("VK temporary failure")
+            }
+            fail("Must propagate the API error")
+        } catch (_: IOException) { }
+        val result = pager.load("asc", setOf(10, 20), { it: Int -> it }) { offset ->
+            offsets.add(offset)
+            TopicCommentsPager.Page(listOf(50, 90), 4)
+        }
+        assertEquals(listOf(2, 2), offsets)
+        assertEquals(listOf(50, 90), result.items)
+        assertFalse(pager.hasMore("asc"))
+    }
+
+    @Test fun mockVkLoadsMultiplePagesInBothDirections() = runBlocking {
+        for (sort in listOf("asc", "desc")) {
+            val source = if (sort == "asc") listOf(3, 10, 30, 80, 900) else listOf(900, 80, 30, 10, 3)
+            val pager = TopicCommentsPager()
+            val loaded = mutableSetOf<Int>()
+            val offsets = mutableListOf<Int>()
+            while (pager.hasMore(sort)) {
+                val page = pager.load(sort, loaded, { it: Int -> it }) { offset ->
+                    offsets.add(offset)
+                    TopicCommentsPager.Page(source.drop(offset).take(2), source.size)
+                }
+                loaded.addAll(page.items)
+            }
+            assertEquals(source.toSet(), loaded)
+            assertEquals(listOf(0, 2, 4), offsets)
+        }
+    }
+
+    @Test fun duplicateOnlyPagesAreConsumedInOneLoad() = runBlocking {
+        val pager = TopicCommentsPager()
+        val offsets = mutableListOf<Int>()
+        val page = pager.load("asc", setOf(10, 20), { it: Int -> it }) { offset ->
+            offsets.add(offset)
+            TopicCommentsPager.Page(if (offset == 0) listOf(10, 20) else listOf(30, 40), 4)
+        }
+        assertEquals(listOf(0, 2), offsets)
+        assertEquals(listOf(30, 40), page.items)
     }
 
     @Test fun focusScansFromBothEndsWithoutCursor() {
