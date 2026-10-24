@@ -50,7 +50,9 @@ jobs:
           cat "$GITHUB_OUTPUT"
 
       - name: Test topic pagination
-        run: bash gradlew -p pagination-tests test --stacktrace
+        run: |
+          bash gradlew -p pagination-tests test --stacktrace
+          python3 pagination-tests/check-vkscript.py
 
       - name: Install host tools
         run: sudo apt-get update && sudo apt-get install -y nasm diffutils unzip wget
