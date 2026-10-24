@@ -338,7 +338,10 @@ class CommentsPresenter(
                         null, commentThread, false, sort
                     ).single()
                     val fresh = topicPager.fresh(bundle.comments, loadedIds) { it.getObjectId() }
-                    topicPager.received(sort, bundle.rawCount, bundle.totalCount)
+                    topicPager.received(
+                        sort, bundle.rawCount, bundle.totalCount,
+                        bundle.comments.map { it.getObjectId() }
+                    )
                     if (fresh.isNotEmpty() || !topicPager.hasMore(sort)) {
                         bundle.comments.clear()
                         bundle.comments.addAll(fresh)

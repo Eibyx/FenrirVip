@@ -42,6 +42,18 @@ class TopicCommentsPagerTest {
         }
     }
 
+    @Test fun serverIgnoringOffsetIsAnErrorNotFalseEndOfList() {
+        val pager = TopicCommentsPager()
+        pager.received("asc", 2, 4, listOf(10, 50))
+        assertThrows(IllegalStateException::class.java) {
+            pager.received("asc", 2, 4, listOf(10, 50))
+        }
+        assertEquals(2, pager.offset("asc"))
+        assertTrue(pager.hasMore("asc"))
+        pager.received("asc", 2, 4, listOf(80, 100))
+        assertFalse(pager.hasMore("asc"))
+    }
+
     @Test fun emptyTopic() {
         val pager = TopicCommentsPager()
         pager.initial("asc", 0, 0, false)

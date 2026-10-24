@@ -154,10 +154,7 @@ internal class CommentsApi(accountId: Long, provider: IServiceProvider) :
                             "        \"video_id\":source_id, \"count\":\"1\", \"sort\":\"asc\"}).items[0].id;\n" +
                             "}\n" +
                             "\n" +
-                            "if(source_type == \"topic\"){\n" +
-                            "    first_id = API.board.getComments({\"v\":\"" + Constants.API_VERSION + "\",\"group_id\":positive_group_id, \n" +
-                            "        \"topic_id\":source_id, \"count\":\"1\", \"sort\":\"asc\"}).items[0].id;\n" +
-                            "}\n" +
+                            "// Topic boundaries are tracked by raw offsets and count.\n" +
                             "\n" +
                             "var last_id;\n" +
                             "if(source_type == \"post\"){\n" +
@@ -183,10 +180,7 @@ internal class CommentsApi(accountId: Long, provider: IServiceProvider) :
                             "        \"video_id\":source_id, \"count\":\"1\", \"sort\":\"desc\"}).items[0].id;\n" +
                             "}\n" +
                             "\n" +
-                            "if(source_type == \"topic\"){\n" +
-                            "    last_id = API.board.getComments({\"v\":\"" + Constants.API_VERSION + "\",\"group_id\":positive_group_id, \n" +
-                            "        \"topic_id\":source_id, \"count\":\"1\", \"sort\":\"desc\"}).items[0].id;\n" +
-                            "}\n" +
+                            "// Topic boundaries are tracked by raw offsets and count.\n" +
                             "\n" +
                             "return {\"main\": result, \n" +
                             "    \"first_id\": first_id, \n" +
