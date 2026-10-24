@@ -81,7 +81,7 @@ class CommentsPresenter(
     private val cacheLoadingDisposable = CompositeJob()
     private val isTopic: Boolean
         get() = commented.sourceType == CommentedType.TOPIC
-    private val topicPager = TopicCommentsPager()
+    private var topicPager = TopicCommentsPager()
     private var commentedState: CommentedState? = null
     private var author: Owner? = null
     private var directionDesc = Settings.get().main().isCommentsDesc
@@ -220,6 +220,12 @@ class CommentsPresenter(
     }
 
     private fun requestInitialData() {
+        if (isTopic) {
+            // Direction changes may arrive while a page is in flight. Keep its offsets
+            // in the cancelled generation rather than mutating the new scan.
+            actualLoadingDisposable.clear()
+            topicPager = TopicCommentsPager()
+        }
         val accountId = authorId
         val single: Flow<CommentsBundle> = when {
             focusToComment != null -> {
@@ -327,14 +333,15 @@ class CommentsPresenter(
     }
 
     private fun loadTopicPage(sort: String, state: Int) {
-        if (!topicPager.hasMore(sort)) return
+        val pager = topicPager
+        if (!pager.hasMore(sort)) return
         val boundary = if (sort == "desc") firstCommentInList?.getObjectId() else lastCommentInList?.getObjectId()
         val loadedIds = data.mapTo(HashSet()) { it.getObjectId() }
         setLoadingState(state)
         actualLoadingDisposable.add(
             flow {
                 var response: CommentsBundle? = null
-                val page = topicPager.load(sort, loadedIds, { it: Comment -> it.getObjectId() }, { comment ->
+                val page = pager.load(sort, loadedIds, { it: Comment -> it.getObjectId() }, { comment ->
                     boundary == null || if (sort == "desc") comment.getObjectId() < boundary
                     else comment.getObjectId() > boundary
                 }) { offset ->
