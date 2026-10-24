@@ -79,6 +79,8 @@ class CommentsPresenter(
     private val actualLoadingDisposable = CompositeJob()
     private val deepLookingHolder = CompositeJob()
     private val cacheLoadingDisposable = CompositeJob()
+    private val isTopic: Boolean
+        get() = commented.sourceType == CommentedType.TOPIC
     private val topicPager = TopicCommentsPager()
     private var commentedState: CommentedState? = null
     private var author: Owner? = null
