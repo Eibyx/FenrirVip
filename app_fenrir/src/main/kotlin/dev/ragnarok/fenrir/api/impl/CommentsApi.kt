@@ -1,6 +1,7 @@
 package dev.ragnarok.fenrir.api.impl
 
 import dev.ragnarok.fenrir.Constants
+import dev.ragnarok.fenrir.api.exceptions.ApiException
 import dev.ragnarok.fenrir.api.TokenType
 import dev.ragnarok.fenrir.api.interfaces.ICommentsApi
 import dev.ragnarok.fenrir.api.interfaces.providers.IServiceProvider
@@ -202,7 +203,23 @@ internal class CommentsApi(accountId: Long, provider: IServiceProvider) :
                     accessKey,
                     fields
                 )
-                    .map(extractResponseWithErrorHandling())
+                    .map { response ->
+                        // execute may succeed at the transport level while board.getComments fails.
+                        if (sourceType == "topic") {
+                            response.executeErrors?.filterNotNull()?.firstOrNull()?.let {
+                                throw ApiException(it)
+                            }
+                        }
+                        extractResponseWithErrorHandling<CustomCommentsResponse>()(response).also {
+                            if (sourceType == "topic") {
+                                val main = checkNotNull(it.main) { "VK returned no topic comments response" }
+                                check(!main.comments.isNullOrEmpty() || main.count == 0 ||
+                                    (offset ?: 0) >= main.count) {
+                                    "VK returned an empty topic page before the end"
+                                }
+                            }
+                        }
+                    }
             }
     }
 }

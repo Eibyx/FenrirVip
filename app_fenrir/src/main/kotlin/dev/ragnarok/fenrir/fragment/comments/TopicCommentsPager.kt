@@ -1,0 +1,38 @@
+package dev.ragnarok.fenrir.fragment.comments
+
+/** Offsets count raw VK items, never the size of the deduplicated UI/cache. */
+internal class TopicCommentsPager {
+    private val offsets = mutableMapOf("asc" to 0, "desc" to 0)
+    private val finished = mutableSetOf<String>()
+
+    fun <T> fresh(items: List<T>, loadedIds: Set<Int>, id: (T) -> Int): List<T> {
+        val seen = HashSet(loadedIds)
+        return items.filter { seen.add(id(it)) }
+    }
+
+    fun reset() {
+        offsets.keys.toList().forEach { offsets[it] = 0 }
+        finished.clear()
+    }
+
+    fun offset(sort: String): Int = offsets.getValue(sort)
+    fun hasMore(sort: String): Boolean = sort !in finished
+
+    fun received(sort: String, rawCount: Int, total: Int) {
+        require(rawCount >= 0 && total >= 0)
+        val next = offset(sort) + rawCount
+        // An empty page before the advertised end is not proof of exhaustion.
+        // Keep the request unchanged so a transient API inconsistency is retryable.
+        check(rawCount != 0 || next >= total) { "VK returned an empty topic page before the end" }
+        offsets[sort] = next
+        if (next >= total) finished.add(sort)
+    }
+
+    fun initial(sort: String, rawCount: Int, total: Int, focused: Boolean) {
+        reset()
+        if (!focused) {
+            received(sort, rawCount, total)
+            finished.add(if (sort == "asc") "desc" else "asc")
+        }
+    }
+}

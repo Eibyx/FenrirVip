@@ -54,6 +54,8 @@ import dev.ragnarok.fenrir.util.coroutines.CoroutinesUtils.fromIOToMain
 import dev.ragnarok.fenrir.util.coroutines.CoroutinesUtils.hiddenIO
 import dev.ragnarok.fenrir.util.coroutines.CoroutinesUtils.sharedFlowToMain
 import dev.ragnarok.fenrir.util.coroutines.CoroutinesUtils.syncSingleSafe
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlin.math.abs
@@ -77,6 +79,7 @@ class CommentsPresenter(
     private val actualLoadingDisposable = CompositeJob()
     private val deepLookingHolder = CompositeJob()
     private val cacheLoadingDisposable = CompositeJob()
+    private val topicPager = TopicCommentsPager()
     private var commentedState: CommentedState? = null
     private var author: Owner? = null
     private var directionDesc = Settings.get().main().isCommentsDesc
@@ -275,6 +278,10 @@ class CommentsPresenter(
         if (loadingState != LoadingState.NO) return
         val first = firstCommentInList ?: return
         val accountId = authorId
+        if (isTopic) {
+            loadTopicPage("desc", LoadingState.UP)
+            return
+        }
         setLoadingState(LoadingState.UP)
         actualLoadingDisposable.add(
             interactor.getCommentsPortion(
@@ -296,6 +303,10 @@ class CommentsPresenter(
         if (loadingState != LoadingState.NO) return
         val last = lastCommentInList ?: return
         val accountId = authorId
+        if (isTopic) {
+            loadTopicPage("asc", LoadingState.DOWN)
+            return
+        }
         setLoadingState(LoadingState.DOWN)
         actualLoadingDisposable.add(
             interactor.getCommentsPortion(
@@ -313,6 +324,34 @@ class CommentsPresenter(
                 ) { throwable -> onCommentPortionError(throwable) })
     }
 
+    private fun loadTopicPage(sort: String, state: Int) {
+        if (!topicPager.hasMore(sort)) return
+        val loadedIds = data.mapTo(HashSet()) { it.getObjectId() }
+        setLoadingState(state)
+        actualLoadingDisposable.add(
+            flow {
+                // A focused initial page can overlap pages scanned from either end.
+                // Consume those raw pages rather than requesting the same cursor forever.
+                do {
+                    val bundle = interactor.getCommentsPortion(
+                        authorId, commented, topicPager.offset(sort), COUNT,
+                        null, commentThread, false, sort
+                    ).single()
+                    val fresh = topicPager.fresh(bundle.comments, loadedIds) { it.getObjectId() }
+                    topicPager.received(sort, bundle.rawCount, bundle.totalCount)
+                    if (fresh.isNotEmpty() || !topicPager.hasMore(sort)) {
+                        bundle.comments.clear()
+                        bundle.comments.addAll(fresh)
+                        emit(bundle)
+                        break
+                    }
+                } while (topicPager.hasMore(sort))
+            }.fromIOToMain({ onCommentsPortionPortionReceived(it) }) {
+                onCommentPortionError(it)
+            }
+        )
+    }
+
     private fun onCommentPortionError(throwable: Throwable) {
         setLoadingState(LoadingState.NO)
         showError(throwable)
@@ -321,6 +360,16 @@ class CommentsPresenter(
     private fun onCommentsPortionPortionReceived(bundle: CommentsBundle) {
         cacheLoadingDisposable.clear()
         val comments = bundle.comments
+        if (isTopic) {
+            val known = data.mapTo(HashSet()) { it.getObjectId() }
+            data.addAll(topicPager.fresh(comments, known) { it.getObjectId() })
+            data.sortByDescending { it.getObjectId() }
+            view?.notifyDataSetChanged()
+            commentedState = CommentedState(bundle.firstCommentId, bundle.lastCommentId)
+            updateAdminLevel(bundle.adminLevel.orZero())
+            setLoadingState(LoadingState.NO)
+            return
+        }
         when (loadingState) {
             LoadingState.UP -> {
                 data.addAll(comments)
@@ -451,6 +500,7 @@ class CommentsPresenter(
 
     private val isCommentsAvailableUp: Boolean
         get() {
+            if (isTopic) return topicPager.hasMore("desc")
             if (commentedState?.firstCommentId == null) {
                 return false
             }
@@ -459,6 +509,7 @@ class CommentsPresenter(
         }
     private val isCommentsAvailableDown: Boolean
         get() {
+            if (isTopic) return topicPager.hasMore("asc")
             if (commentedState?.lastCommentId == null) {
                 return false
             }
@@ -1061,7 +1112,13 @@ class CommentsPresenter(
         // отменяем загрузку из БД если активна
         cacheLoadingDisposable.clear()
         data.clear()
-        data.addAll(bundle.comments)
+        data.addAll(bundle.comments.distinctBy { it.getObjectId() })
+        if (isTopic) {
+            topicPager.initial(
+                if (directionDesc && focusToComment == null) "desc" else "asc",
+                bundle.rawCount, bundle.totalCount, focusToComment != null
+            )
+        }
         commentedState = CommentedState(bundle.firstCommentId, bundle.lastCommentId)
         updateAdminLevel(bundle.adminLevel.orZero())
 
