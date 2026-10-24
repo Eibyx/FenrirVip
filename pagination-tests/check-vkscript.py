@@ -65,7 +65,7 @@ for (const main of [{count:0,items:[]},false]) {
 for (const sort of ['asc','desc']) {
   for (const offset of [0,80,1560,2000]) {
     const calls=[];
-    const result=execute({board:{getComments:p=>{
+    const result=execute({groups:{getById:()=>({groups:[{admin_level:2}]})},board:{getComments:p=>{
       calls.push(p);
       return {count:3000,items:Array.from({length:20},(_,i)=>({id:sort==='asc'?offset+i:2999-offset-i}))};
     }}}, {source_type:'topic',owner_id:-42,source_id:123,offset,count:20,sort,start_comment_id:null,comment_id:0});
