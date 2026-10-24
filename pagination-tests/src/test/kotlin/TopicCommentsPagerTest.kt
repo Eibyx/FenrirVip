@@ -3,6 +3,7 @@ package dev.ragnarok.fenrir.fragment.comments
 import org.junit.Assert.*
 import org.junit.Test
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import java.io.IOException
 
 class TopicCommentsPagerTest {
@@ -165,5 +166,68 @@ class TopicCommentsPagerTest {
         assertEquals(4, pager.offset("asc"))
         pager.received("asc", 2, 6)
         assertFalse(pager.hasMore("asc"))
+    }
+    @Test fun directPageArithmeticAndValidation() {
+        for ((page, offset) in listOf(1 to 0, 5 to 80, 79 to 1560, 101 to 2000)) {
+            assertEquals(offset, TopicCommentsPager.parseOffset(page.toString(), true))
+        }
+        assertEquals(2000, TopicCommentsPager.parseOffset("2000", false))
+        for (text in listOf("-1", "abc", "", "9999999999999999999999999", "2147483648")) {
+            assertThrows(IllegalArgumentException::class.java) { TopicCommentsPager.parseOffset(text, false) }
+        }
+        assertThrows(IllegalArgumentException::class.java) { TopicCommentsPager.parseOffset("0", true) }
+        assertThrows(IllegalArgumentException::class.java) { TopicCommentsPager.parseOffset("107374184", true) }
+    }
+
+    @Test fun jumpRequestsOnlyDestinationAndContinuesBothDirections() = runBlocking {
+        for (sort in listOf("asc", "desc")) {
+            val pager = TopicCommentsPager()
+            pager.seek(sort, 1560, 20, 3000)
+            val calls = mutableListOf<Int>()
+            val result = pager.load(sort, emptySet(), { it: Int -> it }) { offset ->
+                calls.add(offset)
+                TopicCommentsPager.Page((offset until offset + 20).toList(), 3000)
+            }
+            assertEquals(listOf(1580), calls)
+            assertEquals(20, result.items.size)
+            val opposite = if (sort == "asc") "desc" else "asc"
+            assertEquals(1440, pager.offset(opposite))
+            pager.seek(sort, 80, 20, 3000)
+            assertEquals(100, pager.offset(sort))
+            assertEquals(2920, pager.offset(opposite))
+            assertTrue(pager.hasMore(opposite))
+        }
+    }
+
+    @Test fun invalidJumpDoesNotChangePagerAndApiErrorIsRetryable() = runBlocking {
+        val pager = TopicCommentsPager()
+        pager.seek("asc", 2000, 20, 3000)
+        assertThrows(IllegalArgumentException::class.java) { pager.seek("asc", 4000, 0, 3000) }
+        assertEquals(2020, pager.offset("asc"))
+        try {
+            pager.load("asc", emptySet(), { it: Int -> it }) { throw IOException("Temporary VK error") }
+            fail("Expected error")
+        } catch (_: IOException) { }
+        assertEquals(2020, pager.offset("asc"))
+        pager.seek("desc", 0, 20, 3000)
+        assertFalse(pager.hasMore("asc"))
+        pager.seek("asc", 2980, 20, 3000)
+        assertFalse(pager.hasMore("asc"))
+        assertTrue(pager.hasMore("desc"))
+    }
+
+    @Test fun cancelledJumpCannotCommitItsCursor() = runBlocking {
+        val pager = TopicCommentsPager()
+        val started = kotlinx.coroutines.CompletableDeferred<Unit>()
+        val job = launch {
+            pager.load("asc", emptySet(), { it: Int -> it }) {
+                started.complete(Unit)
+                kotlinx.coroutines.awaitCancellation()
+            }
+        }
+        started.await()
+        job.cancel()
+        job.join()
+        assertEquals(0, pager.offset("asc"))
     }
 }
