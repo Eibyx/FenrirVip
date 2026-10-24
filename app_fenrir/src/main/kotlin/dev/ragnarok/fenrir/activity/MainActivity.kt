@@ -468,6 +468,7 @@ open class MainActivity : AppCompatActivity(), NavigationDrawerCallbacks, OnSect
             nextRandom()
         }
         setTheme(currentStyle())
+        dev.ragnarok.fenrir.settings.ModernAppearance.applyPalette(this)
         Utils.prepareDensity(this)
         Utils.registerColorsThorVG(this)
 

@@ -31,6 +31,14 @@ import java.net.UnknownHostException
 
 abstract class BaseMvpFragment<P : AbsPresenter<V>, V : IMvpView> : AbsMvpFragment<P, V>(),
     IMvpView, IProgressView, IErrorView, IToastView, IToolbarView {
+    override fun onCreateAnimation(transit: Int, enter: Boolean, nextAnim: Int): android.view.animation.Animation? {
+        return when (dev.ragnarok.fenrir.settings.ModernAppearance.motion(requireContext())) {
+            "off" -> android.view.animation.AlphaAnimation(1f, 1f).apply { duration = 0 }
+            "reduced" -> android.view.animation.AlphaAnimation(if (enter) 0f else 1f, if (enter) 1f else 0f).apply { duration = 80 }
+            else -> super.onCreateAnimation(transit, enter, nextAnim)
+        }
+    }
+
     private var mLoadingProgressDialog: AlertDialog? = null
     protected fun hasHideToolbarExtra(): Boolean {
         return arguments?.getBoolean(EXTRA_HIDE_TOOLBAR) == true

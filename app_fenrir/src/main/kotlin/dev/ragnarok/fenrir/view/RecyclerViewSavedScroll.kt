@@ -11,6 +11,11 @@ class RecyclerViewSavedScroll @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : RecyclerView(context, attrs) {
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        dev.ragnarok.fenrir.settings.ModernAppearance.applyTo(this)
+    }
+
     private var uid: Int = -1
 
     fun updateUid(uid: Int?) {

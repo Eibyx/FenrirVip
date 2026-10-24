@@ -64,7 +64,7 @@ android {
             )
         }
         androidResources.localeFilters.clear()
-        androidResources.localeFilters.addAll(setOf("en", "ru"))
+        androidResources.localeFilters.addAll(setOf("en", "ru", "es"))
     }
 
     lint {
@@ -79,8 +79,19 @@ android {
         encoding = "utf-8"
     }
 
+    val releaseStore = providers.environmentVariable("FENRIR_KEYSTORE_FILE").orNull
+    if (releaseStore != null) {
+        signingConfigs.create("persistentRelease") {
+            storeFile = file(releaseStore)
+            storePassword = providers.environmentVariable("FENRIR_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("FENRIR_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("FENRIR_KEY_PASSWORD").get()
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseStore != null) signingConfig = signingConfigs.getByName("persistentRelease")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

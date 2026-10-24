@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="modern_hide_decorations">Скрыть украшения в заголовках</string>
+  <string name="modern_hide_decorations_summary">Скрыть декоративные символы и руны. Обложки и содержимое сообществ VK не удаляются.</string>
+  <string name="modern_compact_headers">Компактные заголовки сообществ</string>
+  <string name="modern_animations">Анимации</string>
+  <string name="modern_motion">Стиль анимации</string>
+  <string name="modern_motion_summary">Учитывает системные настройки анимации Android. Для применения заново откройте другие экраны.</string>
+  <string-array name="modern_motion_names">
+    <item>Плавные</item>
+    <item>Уменьшенные</item>
+    <item>Отключены</item>
+  </string-array>
+  <string name="modern_custom_palette">Своя тональная палитра</string>
+  <string name="modern_palette_summary">Android 12 и новее на совместимых устройствах. Создаёт согласованные цвета Material для светлой и тёмной темы.</string>
+  <string name="modern_seed">Акцентный цвет</string>
+</resources>

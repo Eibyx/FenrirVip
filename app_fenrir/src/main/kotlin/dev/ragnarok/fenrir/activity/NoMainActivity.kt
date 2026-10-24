@@ -32,6 +32,7 @@ abstract class NoMainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(currentStyle())
+        dev.ragnarok.fenrir.settings.ModernAppearance.applyPalette(this)
         Utils.prepareDensity(this)
         Utils.registerColorsThorVG(this)
         super.onCreate(savedInstanceState)

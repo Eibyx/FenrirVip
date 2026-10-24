@@ -1,0 +1,202 @@
+name: Fenrir Modern Release
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: modern-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h "$HOME"
+
+      # JDK 21 is what the project compiles against; the Gradle daemon
+      # itself is pinned to 25 in gradle/gradle-daemon-jvm.properties.
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - name: Read toolchain versions
+        id: versions
+        run: |
+          get() { sed -n "s/^$1 *= *\"\(.*\)\"/\1/p" gradle/libs.versions.toml; }
+          echo "sdk=$(get appCompileSDK)" >> "$GITHUB_OUTPUT"
+          echo "build_tools=$(get appBuildTools)" >> "$GITHUB_OUTPUT"
+          echo "ndk=$(get appNdk)" >> "$GITHUB_OUTPUT"
+          echo "cmake=$(get appCMake)" >> "$GITHUB_OUTPUT"
+          echo "min_sdk=$(get appMinSDKNotDevelop)" >> "$GITHUB_OUTPUT"
+          if [ "$(get developerBuild)" = true ]; then
+            echo "abis=$(get targetAbiDevelop)" >> "$GITHUB_OUTPUT"
+          else
+            echo "abis=$(get targetAbiNotDevelop)" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
+      - name: Test topic pagination
+        run: |
+          bash gradlew -p pagination-tests test --stacktrace
+          python3 pagination-tests/check-vkscript.py
+          python3 pagination-tests/check-modern-resources.py
+
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y nasm diffutils unzip wget
+
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" --install \
+            "ndk;${{ steps.versions.outputs.ndk }}" \
+            "cmake;${{ steps.versions.outputs.cmake }}" \
+            "build-tools;${{ steps.versions.outputs.build_tools }}"
+          # If sdkmanager does not know this platform name, AGP downloads it itself.
+          "$SDKMANAGER" --install "platforms;android-${{ steps.versions.outputs.sdk }}" \
+            || echo "Platform will be resolved by AGP"
+          # native/ffmpeg.sh expects the SDK at ~/Android/Sdk
+          mkdir -p "$HOME/Android"
+          ln -sfn "$ANDROID_HOME" "$HOME/Android/Sdk"
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Restore ffmpeg cache
+        id: ffmpeg-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/ffmpeg
+          key: ffmpeg-${{ steps.versions.outputs.ndk }}-${{ steps.versions.outputs.min_sdk }}-${{ hashFiles('native/ffmpeg.sh', 'native/okhttp.c', 'native/okhttp.patch', 'native/src/main/jni/build_ffmpeg.sh') }}
+
+      - name: Build ffmpeg
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        working-directory: native
+        run: |
+          chmod +x ffmpeg.sh src/main/jni/build_ffmpeg.sh
+          echo "${{ steps.versions.outputs.min_sdk }}" | ./ffmpeg.sh
+          ls -R "$HOME/ffmpeg/android-libs"
+
+      # Saved right away so a later Gradle failure does not discard it.
+      - name: Save ffmpeg cache
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/ffmpeg
+          key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
+
+      # README "Variant 2": build :native from source instead of compiled_native.
+      # Applied only in CI, never committed.
+      - name: Enable :native module
+        run: |
+          sed -i 's|^//include(":native")|include(":native")|' settings.gradle.kts
+          sed -i 's|//implementation(project(":native"))|implementation(project(":native"))|' app_fenrir/build.gradle.kts
+          sed -i '/implementation(fileTree("..\/compiled_native")/d' app_fenrir/build.gradle.kts
+          grep -n 'include(":native")' settings.gradle.kts
+          grep -n 'project(":native")' app_fenrir/build.gradle.kts
+          ! grep -n 'compiled_native' app_fenrir/build.gradle.kts
+
+      - name: Prepare persistent release signing
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.FENRIR_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.FENRIR_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.FENRIR_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.FENRIR_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/fenrir-release.keystore"
+            chmod 600 "$RUNNER_TEMP/fenrir-release.keystore"
+            echo "FENRIR_KEYSTORE_FILE=$RUNNER_TEMP/fenrir-release.keystore" >> "$GITHUB_ENV"
+            echo 'available=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'available=false' >> "$GITHUB_OUTPUT"
+            echo '::notice::Persistent signing is not configured. Build an unsigned release; do not publish a pre-release.'
+          fi
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Assemble optimized Fenrir release
+        env:
+          FENRIR_KEYSTORE_PASSWORD: ${{ secrets.FENRIR_KEYSTORE_PASSWORD }}
+          FENRIR_KEY_ALIAS: ${{ secrets.FENRIR_KEY_ALIAS }}
+          FENRIR_KEY_PASSWORD: ${{ secrets.FENRIR_KEY_PASSWORD }}
+        run: bash gradlew :native:assembleRelease :app_fenrir:assembleFenrirRelease --stacktrace --max-workers=4
+
+      - name: Validate release
+        env:
+          SIGNED: ${{ steps.signing.outputs.available }}
+        run: |
+          APK_DIR=app_fenrir/build/outputs/apk/fenrir/release
+          mapfile -t APKS < <(find "$APK_DIR" -maxdepth 1 -name '*.apk' -type f)
+          test "${#APKS[@]}" -eq 1
+          APK="${APKS[0]}"
+          TOOLS="$ANDROID_HOME/build-tools/${{ steps.versions.outputs.build_tools }}"
+          unzip -t "$APK"
+          "$TOOLS/aapt2" dump badging "$APK" > "$APK_DIR/release-validation.txt"
+          grep -q "package: name='dev.ragnarok.fenrir'" "$APK_DIR/release-validation.txt"
+          grep -q "'es'" "$APK_DIR/release-validation.txt"
+          unzip -Z1 "$APK" > "$APK_DIR/entries.txt"
+          IFS=',' read -ra ABIS <<< "${{ steps.versions.outputs.abis }}"
+          for ABI in "${ABIS[@]}"; do grep -Fx "lib/$ABI/libfenrir_jni.so" "$APK_DIR/entries.txt"; done
+          test -s app_fenrir/build/outputs/mapping/fenrirRelease/mapping.txt
+          if [ "$SIGNED" = true ]; then "$TOOLS/apksigner" verify --verbose --print-certs "$APK"; fi
+          sha256sum "$APK" >> "$APK_DIR/release-validation.txt"
+          cat "$APK_DIR/release-validation.txt"
+
+      - name: Upload native AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-release-aar
+          path: native/build/outputs/aar/*.aar
+          if-no-files-found: error
+
+      - name: Upload validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-reports
+          path: |
+            pagination-tests/build/test-results/
+            pagination-tests/build/reports/
+            build/reports/
+            app_fenrir/build/outputs/apk/fenrir/release/release-validation.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: fenrir-modern-release
+          path: app_fenrir/build/outputs/apk/fenrir/release/*.apk
+          if-no-files-found: error
+
+      - name: Publish signed pre-release
+        if: steps.signing.outputs.available == 'true' && github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="modern-${{ github.run_number }}-${GITHUB_SHA:0:7}"
+          gh release create "$TAG" app_fenrir/build/outputs/apk/fenrir/release/*.apk \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "FenrirVip Modern $TAG" --notes-file docs/MODERN_EDITION.md
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/fenrir-release.keystore"

@@ -1661,6 +1661,12 @@ object Utils {
                 }
             }
 
+            Lang.SPANISH -> {
+                Constants.DEVICE_COUNTRY_CODE = "es"
+                return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.BAKLAVA) Locale.of("es")
+                else { @Suppress("deprecation") Locale("es") }
+            }
+
             Lang.DEFAULT -> {}
         }
         Constants.DEVICE_COUNTRY_CODE = "ru"

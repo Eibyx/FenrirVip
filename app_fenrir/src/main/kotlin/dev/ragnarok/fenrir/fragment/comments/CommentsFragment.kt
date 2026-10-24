@@ -203,6 +203,7 @@ class CommentsFragment : PlaceSupportMvpFragment<CommentsPresenter, ICommentsVie
         mAdapter?.addFooter(loadUpView)
         mAdapter?.setListener(this)
         mAdapter?.setOnHashTagClickListener(this)
+        mRecyclerView?.let { dev.ragnarok.fenrir.settings.ModernAppearance.applyTo(it) }
         mRecyclerView?.adapter = mAdapter
         mCenterProgressBar = root.findViewById(R.id.progress_bar)
         mEmptyView = root.findViewById(R.id.empty_text)

@@ -38,6 +38,7 @@ class LoginActivity : AppCompatActivity() {
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         setTheme(currentStyle())
+        dev.ragnarok.fenrir.settings.ModernAppearance.applyPalette(this)
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
         val webview = findViewById<WebView>(R.id.item_web_auth)
