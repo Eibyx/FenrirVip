@@ -230,4 +230,15 @@ class TopicCommentsPagerTest {
         job.join()
         assertEquals(0, pager.offset("asc"))
     }
+    @Test fun stagedPageCannotAdvanceVisibleCursorAfterCancellationOrFailure() {
+        val visible = TopicCommentsPager()
+        visible.seek("asc", 1560, 20, 3000)
+        val pending = visible.copy()
+        pending.received("asc", 20, 3000)
+        assertEquals(1580, visible.offset("asc"))
+        assertEquals(1600, pending.offset("asc"))
+        visible.seek("asc", 80, 20, 3000)
+        assertEquals(100, visible.offset("asc"))
+        assertEquals(1600, pending.offset("asc"))
+    }
 }

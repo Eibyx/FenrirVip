@@ -342,7 +342,7 @@ class CommentsPresenter(
     }
 
     private fun loadTopicPage(sort: String, state: Int) {
-        val pager = topicPager
+        val pager = topicPager.copy()
         val generation = topicGeneration
         if (!pager.hasMore(sort)) return
         val boundary = if (sort == "desc") firstCommentInList?.getObjectId() else lastCommentInList?.getObjectId()
@@ -366,7 +366,10 @@ class CommentsPresenter(
                 bundle.comments.clear()
                 bundle.comments.addAll(page.items)
                 emit(bundle)
-            }.fromIOToMain({ if (generation == topicGeneration) onCommentsPortionPortionReceived(it) }) {
+            }.fromIOToMain({ if (generation == topicGeneration) {
+                topicPager = pager
+                onCommentsPortionPortionReceived(it)
+            } }) {
                 if (generation == topicGeneration) onCommentPortionError(it)
             }
         )

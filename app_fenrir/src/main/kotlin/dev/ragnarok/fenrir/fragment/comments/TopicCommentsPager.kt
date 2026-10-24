@@ -30,6 +30,13 @@ internal class TopicCommentsPager {
         return items.filter { seen.add(id(it)) }
     }
 
+    /** Stage a request privately; publish this cursor only with its displayed rows. */
+    fun copy(): TopicCommentsPager = TopicCommentsPager().also { candidate ->
+        candidate.offsets.putAll(offsets)
+        candidate.previousPages.putAll(previousPages.mapValues { it.value.toList() })
+        candidate.finished.addAll(finished)
+    }
+
     fun reset() {
         offsets.keys.toList().forEach { offsets[it] = 0 }
         finished.clear()
