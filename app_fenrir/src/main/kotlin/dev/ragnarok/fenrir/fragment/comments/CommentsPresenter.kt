@@ -1111,7 +1111,7 @@ class CommentsPresenter(
         // отменяем загрузку из БД если активна
         cacheLoadingDisposable.clear()
         data.clear()
-        data.addAll(bundle.comments.distinctBy { it.getObjectId() })
+        data.addAll(if (isTopic) bundle.comments.distinctBy { it.getObjectId() } else bundle.comments)
         if (isTopic) {
             topicPager.initial(
                 if (directionDesc && focusToComment == null) "desc" else "asc",
