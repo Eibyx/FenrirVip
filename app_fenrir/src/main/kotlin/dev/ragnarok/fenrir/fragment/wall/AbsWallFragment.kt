@@ -118,6 +118,12 @@ abstract class AbsWallFragment<V : IWallView, P : AbsWallPresenter<V>> :
     private var mUploadAdapter: DocsUploadAdapter? = null
     private var mUploadRoot: View? = null
     protected fun setupPaganContent(Runes: View?, paganSymbol: ThorVGLottieView?) {
+        if (dev.ragnarok.fenrir.settings.ModernAppearance.flag(requireContext(), "modern_hide_decorations", true)) {
+            Runes?.visibility = View.GONE
+            paganSymbol?.stopAnimation()
+            paganSymbol?.visibility = View.GONE
+            return
+        }
         Runes?.visibility = if (Settings.get()
                 .main().isRunes_show
         ) View.VISIBLE else View.GONE
@@ -136,7 +142,11 @@ abstract class AbsWallFragment<V : IWallView, P : AbsWallPresenter<V>> :
                 pic.lottieRes,
                 pic.lottie_replacement, pic.lottie_useMoveColor
             )
-            paganSymbol?.startAnimation()
+            if (dev.ragnarok.fenrir.settings.ModernAppearance.motion(requireContext()) == "smooth") {
+                paganSymbol?.startAnimation()
+            } else {
+                paganSymbol?.stopAnimation()
+            }
         } else {
             paganSymbol?.setImageBitmap(
                 ThorVGSVGRender.createBitmap(
@@ -291,6 +301,7 @@ abstract class AbsWallFragment<V : IWallView, P : AbsWallPresenter<V>> :
             LinearLayoutManager(requireActivity())
         }
         val recyclerView: RecyclerView = root.findViewById(R.id.recycler_view)
+        dev.ragnarok.fenrir.settings.ModernAppearance.applyTo(recyclerView)
         recyclerView.layoutManager = manager
         fabCreate = root.findViewById(R.id.fragment_user_profile_fab)
         fabCreate?.setOnClickListener {

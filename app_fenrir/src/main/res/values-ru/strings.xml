@@ -4,6 +4,7 @@
         <item>По умолчанию</item>
         <item>Английский</item>
         <item>Русский</item>
+        <item>Испанский</item>
     </string-array>
 
     <string-array name="array_rendering_mode_names">

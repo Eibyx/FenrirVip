@@ -1,0 +1,22 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="modern_hide_decorations">Hide local header decorations</string>
+  <string name="modern_hide_decorations_summary">Hide decorative symbols and runes. VK community covers and content are not deleted.</string>
+  <string name="modern_compact_headers">Compact community headers</string>
+  <string name="modern_animations">Animations</string>
+  <string name="modern_motion">Animation style</string>
+  <string name="modern_motion_summary">Respects Android accessibility animation settings. Reopen other screens to apply.</string>
+  <string-array name="modern_motion_names">
+    <item>Smooth</item>
+    <item>Reduced</item>
+    <item>Off</item>
+  </string-array>
+  <string-array name="modern_motion_values" translatable="false">
+    <item>smooth</item>
+    <item>reduced</item>
+    <item>off</item>
+  </string-array>
+  <string name="modern_custom_palette">Use a custom tonal palette</string>
+  <string name="modern_palette_summary">Android 12+ on supported devices. Generates coordinated Material colors for light and dark themes.</string>
+  <string name="modern_seed">Accent color</string>
+</resources>

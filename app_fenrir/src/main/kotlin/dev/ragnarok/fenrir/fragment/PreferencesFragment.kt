@@ -52,6 +52,7 @@ import de.maxr1998.modernpreferences.PreferencesExtra
 import de.maxr1998.modernpreferences.helpers.DISABLED_RESOURCE_ID
 import de.maxr1998.modernpreferences.helpers.accentButtonPref
 import de.maxr1998.modernpreferences.helpers.collapse
+import de.maxr1998.modernpreferences.helpers.onColorChange
 import de.maxr1998.modernpreferences.helpers.colorPick
 import de.maxr1998.modernpreferences.helpers.customText
 import de.maxr1998.modernpreferences.helpers.editText
@@ -255,6 +256,7 @@ class PreferencesFragment : AbsPreferencesFragment(), PreferencesAdapter.OnScree
                 R.anim.preference_layout_fall_down
             )
         }
+        preferencesView?.let { dev.ragnarok.fenrir.settings.ModernAppearance.applyTo(it) }
         if (isNull) {
             preferencesAdapter?.onScreenChangeListener = this
             loadInstanceState({ createRootScreen() }, root)
@@ -665,6 +667,39 @@ class PreferencesFragment : AbsPreferencesFragment(), PreferencesAdapter.OnScree
         subScreen("appearance_settings") {
             titleRes = R.string.appearance_settings
             iconRes = R.drawable.select_colored
+
+            switch("modern_custom_palette") {
+                titleRes = R.string.modern_custom_palette
+                summaryRes = R.string.modern_palette_summary
+                defaultValue = false
+                onCheckedChange { requireActivity().recreate() }
+            }
+            colorPick("modern_seed", parentFragmentManager) {
+                titleRes = R.string.modern_seed
+                dependency = "modern_custom_palette"
+                alphaSlider = false
+                lightSlider = true
+                defaultValue = 0xFF346096.toInt()
+                onColorChange { requireActivity().recreate() }
+            }
+            switch("modern_hide_decorations") {
+                titleRes = R.string.modern_hide_decorations
+                summaryRes = R.string.modern_hide_decorations_summary
+                defaultValue = true
+            }
+            switch("modern_compact_headers") {
+                titleRes = R.string.modern_compact_headers
+                defaultValue = false
+            }
+            subScreen("modern_animations") {
+                titleRes = R.string.modern_animations
+                singleChoice("modern_motion", selItems(R.array.modern_motion_names, R.array.modern_motion_values), parentFragmentManager) {
+                    titleRes = R.string.modern_motion
+                    summaryRes = R.string.modern_motion_summary
+                    initialSelection = "smooth"
+                    onSelectionChange { requireActivity().recreate() }
+                }
+            }
 
             pref(KEY_APP_THEME) {
                 iconRes = R.drawable.select_colored

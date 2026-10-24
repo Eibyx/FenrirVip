@@ -1,0 +1,127 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string-array name="array_language_names">
+    <item>Sistema</item>
+    <item>Inglés</item>
+    <item>Ruso</item>
+    <item>Español</item>
+  </string-array>
+  <string-array name="array_rendering_mode_names">
+    <item>Software</item>
+    <item>Aceleración por hardware</item>
+    <item>Forzar hardware</item>
+  </string-array>
+  <string-array name="array_end_list_anim_names">
+    <item>Completado</item>
+    <item>Círculos</item>
+    <item>Onda</item>
+  </string-array>
+  <string-array name="array_chat_background_names">
+    <item>Liso</item>
+    <item>Galletas</item>
+    <item>Líneas</item>
+    <item>Runas</item>
+    <item>Personalizado…</item>
+  </string-array>
+  <string-array name="array_lifecycle_names">
+    <item>1 min</item>
+    <item>2 min</item>
+    <item>5 min</item>
+    <item>10 min</item>
+    <item>15 min</item>
+  </string-array>
+  <string-array name="array_ffmpeg_names">
+    <item>Desactivado</item>
+    <item>Activado</item>
+    <item>Principal</item>
+  </string-array>
+  <string-array name="array_photo_rounded_names">
+    <item>Redondear siempre</item>
+    <item>Redondear si hay una sola foto</item>
+    <item>No redondear</item>
+  </string-array>
+  <string-array name="array_news_start_updates_names">
+    <item>Desactivar</item>
+    <item>Actualizar</item>
+    <item>Preguntar</item>
+  </string-array>
+  <string-array name="array_swipes_chats_names">
+    <item>Desactivar</item>
+    <item>Slidr</item>
+  </string-array>
+  <string-array name="array_donate_anim_names">
+    <item>Desactivar</item>
+    <item>Líneas</item>
+    <item>Anillo de fuego</item>
+  </string-array>
+  <string-array name="array_is_open_url_internal_names">
+    <item>Desactivar</item>
+    <item>Solo VK</item>
+    <item>Todos los enlaces</item>
+  </string-array>
+  <string-array name="array_long_click_photo_names">
+    <item>Desactivar</item>
+    <item>Descargar</item>
+    <item>Girar</item>
+  </string-array>
+  <string-array name="array_autoplay_video_on_posts_names">
+    <item>Desactivar</item>
+    <item>Solo GIF (con caché)</item>
+    <item>Todos los videos de las publicaciones (consumo elevado de datos y CPU)</item>
+  </string-array>
+  <string-array name="array_autoscroll_in_chats_names">
+    <item>Desactivar</item>
+    <item>Activar</item>
+    <item>Solo conversaciones</item>
+  </string-array>
+  <string-array name="array_accounts_input">
+    <item>VK Android</item>
+    <item>Kate</item>
+    <item>VK Android oculto</item>
+    <item>Kate oculto</item>
+    <item>iOS oculto</item>
+  </string-array>
+  <string-array name="array_sex">
+    <item>Sin especificar</item>
+    <item>Mujer</item>
+    <item>Hombre</item>
+  </string-array>
+  <string-array name="array_month_items">
+    <item>Enero</item>
+    <item>Febrero</item>
+    <item>Marzo</item>
+    <item>Abril</item>
+    <item>Mayo</item>
+    <item>Junio</item>
+    <item>Julio</item>
+    <item>Agosto</item>
+    <item>Septiembre</item>
+    <item>Octubre</item>
+    <item>Noviembre</item>
+    <item>Diciembre</item>
+  </string-array>
+  <string-array name="night_mode_names">
+    <item>Desactivado</item>
+    <item>Activado</item>
+    <item>Automático</item>
+    <item>Seguir al sistema</item>
+  </string-array>
+  <string-array name="theme_overlay_names">
+    <item>Desactivado</item>
+    <item>AMOLED</item>
+    <item>Material 1</item>
+  </string-array>
+  <string-array name="array_image_sizes_names">
+    <item>Pequeña (800 px)</item>
+    <item>Mediana (1200 px)</item>
+    <item>Original</item>
+    <item>Editar</item>
+  </string-array>
+  <string-array name="array_image_sizes_settings_names">
+    <item>Preguntar siempre</item>
+    <item>Pequeña (800 px)</item>
+    <item>Mediana (1200 px)</item>
+    <item>Original</item>
+    <item>Editar</item>
+  </string-array>
+</resources>

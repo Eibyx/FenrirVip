@@ -1,9 +1,42 @@
 package dev.ragnarok.fenrir.settings.theme
 
+import android.content.Context
+import dev.ragnarok.fenrir.R
 import androidx.annotation.StyleRes
 import dev.ragnarok.fenrir.toColor
 
 class ThemeValue {
+    fun displayName(context: Context): String = when (id) {
+        "cold" -> context.getString(R.string.modern_theme_cold)
+        "cold_gold" -> context.getString(R.string.modern_theme_cold_gold)
+        "cold_green" -> context.getString(R.string.modern_theme_cold_green)
+        "coffee_pistachio" -> context.getString(R.string.modern_theme_coffee_pistachio)
+        "ice" -> context.getString(R.string.modern_theme_ice)
+        "old_ice" -> context.getString(R.string.modern_theme_old_ice)
+        "fire" -> context.getString(R.string.modern_theme_fire)
+        "red" -> context.getString(R.string.modern_theme_red)
+        "violet" -> context.getString(R.string.modern_theme_violet)
+        "gray" -> context.getString(R.string.modern_theme_gray)
+        "yellow_violet" -> context.getString(R.string.modern_theme_yellow_violet)
+        "red_violet" -> context.getString(R.string.modern_theme_red_violet)
+        "contrast" -> context.getString(R.string.modern_theme_contrast)
+        "orange" -> context.getString(R.string.modern_theme_orange)
+        "orange_gray" -> context.getString(R.string.modern_theme_orange_gray)
+        "violet_gray" -> context.getString(R.string.modern_theme_violet_gray)
+        "pink_gray" -> context.getString(R.string.modern_theme_pink_gray)
+        "violet_ice" -> context.getString(R.string.modern_theme_violet_ice)
+        "ice_green" -> context.getString(R.string.modern_theme_ice_green)
+        "blue_red" -> context.getString(R.string.modern_theme_blue_red)
+        "green" -> context.getString(R.string.modern_theme_green)
+        "lineage" -> context.getString(R.string.modern_theme_lineage)
+        "fuxia_neon_yellow" -> context.getString(R.string.modern_theme_fuxia_neon_yellow)
+        "fuxia_neon_violet" -> context.getString(R.string.modern_theme_fuxia_neon_violet)
+        "neon_yellow_ice" -> context.getString(R.string.modern_theme_neon_yellow_ice)
+        "random" -> context.getString(R.string.modern_theme_random)
+        "dynamic" -> context.getString(R.string.modern_theme_dynamic)
+        else -> name
+    }
+
     val id: String
     val name: String
     val colorDayPrimary: Int

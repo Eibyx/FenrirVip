@@ -54,6 +54,8 @@ import dev.ragnarok.fenrir.util.coroutines.CoroutinesUtils.fromIOToMain
 import dev.ragnarok.fenrir.util.coroutines.CoroutinesUtils.hiddenIO
 import dev.ragnarok.fenrir.util.coroutines.CoroutinesUtils.sharedFlowToMain
 import dev.ragnarok.fenrir.util.coroutines.CoroutinesUtils.syncSingleSafe
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.single
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.filter
 import kotlin.math.abs
@@ -77,6 +79,13 @@ class CommentsPresenter(
     private val actualLoadingDisposable = CompositeJob()
     private val deepLookingHolder = CompositeJob()
     private val cacheLoadingDisposable = CompositeJob()
+    private val isTopic: Boolean
+        get() = commented.sourceType == CommentedType.TOPIC
+    private var topicPager = TopicCommentsPager()
+    private var topicGeneration = 0
+    private var topicPosition: Int? = null
+    private var topicTotal: Int? = null
+    val canNavigateTopic: Boolean get() = isTopic
     private var commentedState: CommentedState? = null
     private var author: Owner? = null
     private var directionDesc = Settings.get().main().isCommentsDesc
@@ -215,6 +224,16 @@ class CommentsPresenter(
     }
 
     private fun requestInitialData() {
+        if (isTopic) {
+            // Direction changes may arrive while a page is in flight. Keep its offsets
+            // in the cancelled generation rather than mutating the new scan.
+            actualLoadingDisposable.clear()
+            cacheLoadingDisposable.clear()
+            topicPager = TopicCommentsPager()
+            view?.setToolbarSubtitle(getString(R.string.for_topic))
+        }
+        val generation = ++topicGeneration
+        topicPosition = null
         val accountId = authorId
         val single: Flow<CommentsBundle> = when {
             focusToComment != null -> {
@@ -259,7 +278,8 @@ class CommentsPresenter(
         setLoadingState(LoadingState.INITIAL)
         actualLoadingDisposable.add(
             single
-                .fromIOToMain({ bundle -> onInitialDataReceived(bundle) }) { throwable ->
+                .fromIOToMain({ bundle -> if (!isTopic || generation == topicGeneration) onInitialDataReceived(bundle) }) { throwable ->
+                    if (isTopic && generation != topicGeneration) return@fromIOToMain
                     onInitialDataError(
                         throwable
                     )
@@ -275,6 +295,10 @@ class CommentsPresenter(
         if (loadingState != LoadingState.NO) return
         val first = firstCommentInList ?: return
         val accountId = authorId
+        if (isTopic) {
+            loadTopicPage("desc", LoadingState.UP)
+            return
+        }
         setLoadingState(LoadingState.UP)
         actualLoadingDisposable.add(
             interactor.getCommentsPortion(
@@ -296,6 +320,10 @@ class CommentsPresenter(
         if (loadingState != LoadingState.NO) return
         val last = lastCommentInList ?: return
         val accountId = authorId
+        if (isTopic) {
+            loadTopicPage("asc", LoadingState.DOWN)
+            return
+        }
         setLoadingState(LoadingState.DOWN)
         actualLoadingDisposable.add(
             interactor.getCommentsPortion(
@@ -313,6 +341,40 @@ class CommentsPresenter(
                 ) { throwable -> onCommentPortionError(throwable) })
     }
 
+    private fun loadTopicPage(sort: String, state: Int) {
+        val pager = topicPager.copy()
+        val generation = topicGeneration
+        if (!pager.hasMore(sort)) return
+        val boundary = if (sort == "desc") firstCommentInList?.getObjectId() else lastCommentInList?.getObjectId()
+        val loadedIds = data.mapTo(HashSet()) { it.getObjectId() }
+        setLoadingState(state)
+        actualLoadingDisposable.add(
+            flow {
+                var response: CommentsBundle? = null
+                val page = pager.load(sort, loadedIds, { it: Comment -> it.getObjectId() }, { comment ->
+                    boundary == null || if (sort == "desc") comment.getObjectId() < boundary
+                    else comment.getObjectId() > boundary
+                }) { offset ->
+                    val bundle = interactor.getCommentsPortion(
+                        authorId, commented, offset, COUNT,
+                        null, commentThread, false, sort
+                    ).single()
+                    response = bundle
+                    TopicCommentsPager.Page(bundle.comments.toList(), bundle.totalCount)
+                }
+                val bundle = checkNotNull(response)
+                bundle.comments.clear()
+                bundle.comments.addAll(page.items)
+                emit(bundle)
+            }.fromIOToMain({ if (generation == topicGeneration) {
+                topicPager = pager
+                onCommentsPortionPortionReceived(it)
+            } }) {
+                if (generation == topicGeneration) onCommentPortionError(it)
+            }
+        )
+    }
+
     private fun onCommentPortionError(throwable: Throwable) {
         setLoadingState(LoadingState.NO)
         showError(throwable)
@@ -321,6 +383,16 @@ class CommentsPresenter(
     private fun onCommentsPortionPortionReceived(bundle: CommentsBundle) {
         cacheLoadingDisposable.clear()
         val comments = bundle.comments
+        if (isTopic) {
+            val known = data.mapTo(HashSet()) { it.getObjectId() }
+            data.addAll(topicPager.fresh(comments, known) { it.getObjectId() })
+            data.sortByDescending { it.getObjectId() }
+            view?.notifyDataSetChanged()
+            commentedState = CommentedState(bundle.firstCommentId, bundle.lastCommentId)
+            updateAdminLevel(bundle.adminLevel.orZero())
+            setLoadingState(LoadingState.NO)
+            return
+        }
         when (loadingState) {
             LoadingState.UP -> {
                 data.addAll(comments)
@@ -348,6 +420,7 @@ class CommentsPresenter(
 
     private fun updateAdminLevel(newValue: Int) {
         adminLevel = newValue
+        resolveTopicPosition()
         resolveCanSendAsAdminView()
     }
 
@@ -451,6 +524,7 @@ class CommentsPresenter(
 
     private val isCommentsAvailableUp: Boolean
         get() {
+            if (isTopic) return topicPager.hasMore("desc")
             if (commentedState?.firstCommentId == null) {
                 return false
             }
@@ -459,6 +533,7 @@ class CommentsPresenter(
         }
     private val isCommentsAvailableDown: Boolean
         get() {
+            if (isTopic) return topicPager.hasMore("asc")
             if (commentedState?.lastCommentId == null) {
                 return false
             }
@@ -1033,6 +1108,60 @@ class CommentsPresenter(
         resolveAuthorAvatarView()
     }
 
+    fun fireTopicJump(offset: Int) {
+        if (!isTopic || offset < 0) return
+        actualLoadingDisposable.clear()
+        cacheLoadingDisposable.clear()
+        val generation = ++topicGeneration
+        val sort = if (directionDesc) "desc" else "asc"
+        setLoadingState(LoadingState.INITIAL)
+        actualLoadingDisposable.add(interactor.getCommentsPortion(
+            authorId, commented, offset, COUNT, null, commentThread, false, sort
+        ).fromIOToMain({ bundle ->
+            if (generation != topicGeneration) return@fromIOToMain
+            try {
+                val candidate = TopicCommentsPager()
+                candidate.seek(sort, offset, bundle.rawCount, bundle.totalCount)
+                focusToComment = null
+                onInitialDataReceived(bundle)
+                topicPager = candidate
+                topicPosition = offset
+                topicTotal = bundle.totalCount
+                resolveTopicPosition()
+                resolveHeaderFooterViews()
+                view?.scrollToPosition(if (directionDesc) 0 else maxOf(0, data.size - 1))
+            } catch (error: IllegalArgumentException) {
+                setLoadingState(LoadingState.NO)
+                showError(IllegalArgumentException(getString(R.string.topic_position_unavailable)))
+            }
+        }, { error ->
+            if (generation == topicGeneration) onCommentPortionError(error)
+        }))
+    }
+
+    fun fireTopicPageStep(step: Int) {
+        val position = topicPosition ?: return
+        val total = topicTotal ?: return
+        if (total == 0) return
+        val target = when (step) {
+            Int.MIN_VALUE -> 0L
+            Int.MAX_VALUE -> ((total.toLong() - 1) / COUNT) * COUNT
+            else -> (position.toLong() / COUNT + step) * COUNT
+        }
+        if (target >= 0 && target < total) fireTopicJump(target.toInt())
+    }
+
+    private fun resolveTopicPosition() {
+        val position = topicPosition ?: return
+        val total = topicTotal ?: return
+        if (total == 0) {
+            view?.setToolbarSubtitle(getString(R.string.for_topic))
+            return
+        }
+        view?.setToolbarSubtitle(getString(R.string.topic_page_position,
+            position / COUNT + 1, maxOf(1, ((total.toLong() + COUNT - 1) / COUNT).toInt()), position))
+    }
+
     fun fireDirectionChanged() {
         data.clear()
         view?.notifyDataSetChanged()
@@ -1061,7 +1190,18 @@ class CommentsPresenter(
         // отменяем загрузку из БД если активна
         cacheLoadingDisposable.clear()
         data.clear()
-        data.addAll(bundle.comments)
+        data.addAll(if (isTopic) bundle.comments.distinctBy { it.getObjectId() } else bundle.comments)
+        if (isTopic) {
+            topicPager.initial(
+                if (directionDesc && focusToComment == null) "desc" else "asc",
+                bundle.rawCount, bundle.totalCount, focusToComment != null
+            )
+        }
+        if (isTopic && focusToComment == null) {
+            topicPosition = 0
+            topicTotal = bundle.totalCount
+            resolveTopicPosition()
+        }
         commentedState = CommentedState(bundle.firstCommentId, bundle.lastCommentId)
         updateAdminLevel(bundle.adminLevel.orZero())
 
@@ -1102,6 +1242,7 @@ class CommentsPresenter(
             CommentedType.VIDEO -> viewHost.setToolbarSubtitle(getString(R.string.for_video))
             CommentedType.TOPIC -> viewHost.setToolbarSubtitle(getString(R.string.for_topic))
         }
+        resolveTopicPosition()
         resolveCanSendAsAdminView()
         resolveReplyViews()
         checkFocusToCommentDone()
@@ -1176,7 +1317,7 @@ class CommentsPresenter(
     }
 
     companion object {
-        private const val COUNT = 20
+        private const val COUNT = TopicCommentsPager.PAGE_SIZE
         private const val REPLY_PATTERN = "[post%s|%s], "
         internal fun buildReplyTextFor(comment: Comment): String {
             val name =

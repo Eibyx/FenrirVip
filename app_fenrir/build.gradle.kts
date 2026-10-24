@@ -1,6 +1,7 @@
 @file:Suppress("UnstableApiUsage")
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -12,6 +13,58 @@ fun isDevelopBuild(): Boolean = libs.versions.developerBuild.get().toBoolean()
 fun isDevelopBuildString(): String = libs.versions.developerBuild.get()
 fun Provider<String>.commaString() = "\"${this.get()}\""
 fun Provider<String>.asInt() = get().toInt()
+
+val sourceRevision = providers.exec {
+    workingDir(rootProject.projectDir)
+    commandLine("git", "rev-parse", "HEAD")
+}.standardOutput.asText.map { it.trim() }
+val authSourcePaths = listOf(
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/dialog/directauth/DirectAuthIdVKPresenter.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/dialog/directauth/VkIdDiagnostics.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/auth/VkIdSession.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/auth/AuthFailurePolicy.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/auth/AccountCaptchaChallenge.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/interfaces/IAuthApi.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/dialog/directauth/IDirectAuthIdVKView.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/dialog/directauth/DirectAuthIdVKDialog.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/impl/AuthApi.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/exceptions/AuthException.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/exceptions/NeedValidationException.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/rest/HttpException.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/services/IAuthService.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/rest/SimplePostHttp.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/util/OkHttp3LoggingInterceptor.kt"
+)
+
+abstract class GenerateFenrirIdentity : DefaultTask() {
+    @get:Input abstract val revision: Property<String>
+    @get:Input abstract val sourceHashes: MapProperty<String, String>
+    @get:OutputDirectory abstract val outputDirectory: DirectoryProperty
+
+    @TaskAction fun generate() {
+        val commit = revision.get()
+        check(commit.matches(Regex("[0-9a-f]{40}")))
+        val hashes = sourceHashes.get().entries.joinToString(",") { "\"${it.key}\":\"${it.value}\"" }
+        val output = outputDirectory.file("fenrir-build.json").get().asFile
+        output.parentFile.mkdirs()
+        output.writeText("{\"commit\":\"$commit\",\"auth_sources\":{$hashes}}\n")
+    }
+}
+
+val generateFenrirIdentity = tasks.register<GenerateFenrirIdentity>("generateFenrirIdentity") {
+    revision.set(sourceRevision)
+    sourceHashes.set(providers.provider {
+        authSourcePaths.associateWith { path ->
+            MessageDigest.getInstance("SHA-256").digest(rootProject.file(path).readBytes())
+                .joinToString("") { "%02x".format(it) }
+        }
+    })
+    outputDirectory.set(layout.buildDirectory.dir("generated/fenrirIdentity"))
+}
+
+androidComponents.onVariants { variant ->
+    variant.sources.assets?.addGeneratedSourceDirectory(generateFenrirIdentity, GenerateFenrirIdentity::outputDirectory)
+}
 
 android {
     namespace = "dev.ragnarok.fenrir"
@@ -53,6 +106,7 @@ android {
         buildConfigField("String", "FAKE_DEVICE", libs.versions.fakeDevice.commaString())
         buildConfigField("int", "TARGET_SDK", libs.versions.appTargetSDK.get())
         buildConfigField("boolean", "FORCE_DEVELOPER_MODE", isDevelopBuildString())
+        buildConfigField("String", "SOURCE_REVISION", "\"${sourceRevision.get()}\"")
         buildConfigField("int", "VK_API_GROUP_ADMIN_APP_ID", libs.versions.vkGroupAdminAppId.get())
 
         ndk {
@@ -64,7 +118,7 @@ android {
             )
         }
         androidResources.localeFilters.clear()
-        androidResources.localeFilters.addAll(setOf("en", "ru"))
+        androidResources.localeFilters.addAll(setOf("en", "ru", "es"))
     }
 
     lint {
@@ -79,8 +133,19 @@ android {
         encoding = "utf-8"
     }
 
+    val releaseStore = providers.environmentVariable("FENRIR_KEYSTORE_FILE").orNull
+    if (releaseStore != null) {
+        signingConfigs.create("persistentRelease") {
+            storeFile = file(releaseStore)
+            storePassword = providers.environmentVariable("FENRIR_KEYSTORE_PASSWORD").get()
+            keyAlias = providers.environmentVariable("FENRIR_KEY_ALIAS").get()
+            keyPassword = providers.environmentVariable("FENRIR_KEY_PASSWORD").get()
+        }
+    }
+
     buildTypes {
         release {
+            if (releaseStore != null) signingConfig = signingConfigs.getByName("persistentRelease")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

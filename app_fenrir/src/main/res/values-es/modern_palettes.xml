@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="modern_theme_cold">Azul frío</string>
+  <string name="modern_theme_cold_gold">Azul y dorado</string>
+  <string name="modern_theme_cold_green">Verde oliva</string>
+  <string name="modern_theme_coffee_pistachio">Café y pistacho</string>
+  <string name="modern_theme_ice">Hielo</string>
+  <string name="modern_theme_old_ice">Hielo clásico</string>
+  <string name="modern_theme_fire">Fuego</string>
+  <string name="modern_theme_red">Rojo</string>
+  <string name="modern_theme_violet">Violeta</string>
+  <string name="modern_theme_gray">Gris</string>
+  <string name="modern_theme_yellow_violet">Amarillo y violeta</string>
+  <string name="modern_theme_red_violet">Rojo y violeta</string>
+  <string name="modern_theme_contrast">Alto contraste</string>
+  <string name="modern_theme_orange">Naranja</string>
+  <string name="modern_theme_orange_gray">Naranja y gris</string>
+  <string name="modern_theme_violet_gray">Violeta y gris</string>
+  <string name="modern_theme_pink_gray">Rosa y gris</string>
+  <string name="modern_theme_violet_ice">Violeta y hielo</string>
+  <string name="modern_theme_ice_green">Hielo y verde</string>
+  <string name="modern_theme_blue_red">Azul y rojo</string>
+  <string name="modern_theme_green">Verde</string>
+  <string name="modern_theme_lineage">Lineage</string>
+  <string name="modern_theme_fuxia_neon_yellow">Fucsia y amarillo neón</string>
+  <string name="modern_theme_fuxia_neon_violet">Fucsia y violeta neón</string>
+  <string name="modern_theme_neon_yellow_ice">Amarillo neón y hielo</string>
+  <string name="modern_theme_random">Aleatorio</string>
+  <string name="modern_theme_dynamic">Dinámico</string>
+</resources>

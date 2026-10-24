@@ -1,0 +1,185 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+      - 'fix/**'
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android/sdk/ndk /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL
+          df -h "$HOME"
+
+      # JDK 21 is what the project compiles against; the Gradle daemon
+      # itself is pinned to 25 in gradle/gradle-daemon-jvm.properties.
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - name: Read toolchain versions
+        id: versions
+        run: |
+          get() { sed -n "s/^$1 *= *\"\(.*\)\"/\1/p" gradle/libs.versions.toml; }
+          echo "sdk=$(get appCompileSDK)" >> "$GITHUB_OUTPUT"
+          echo "build_tools=$(get appBuildTools)" >> "$GITHUB_OUTPUT"
+          echo "ndk=$(get appNdk)" >> "$GITHUB_OUTPUT"
+          echo "cmake=$(get appCMake)" >> "$GITHUB_OUTPUT"
+          echo "min_sdk=$(get appMinSDKNotDevelop)" >> "$GITHUB_OUTPUT"
+          if [ "$(get developerBuild)" = true ]; then
+            echo "abis=$(get targetAbiDevelop)" >> "$GITHUB_OUTPUT"
+          else
+            echo "abis=$(get targetAbiNotDevelop)" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
+      - name: Test topic pagination
+        run: |
+          bash gradlew -p pagination-tests test --stacktrace
+          python3 pagination-tests/check-vkscript.py
+          python3 pagination-tests/check-modern-resources.py
+
+      - name: Install host tools
+        run: sudo apt-get update && sudo apt-get install -y nasm diffutils unzip wget
+
+      - name: Install Android SDK components
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null
+          "$SDKMANAGER" --install \
+            "ndk;${{ steps.versions.outputs.ndk }}" \
+            "cmake;${{ steps.versions.outputs.cmake }}" \
+            "build-tools;${{ steps.versions.outputs.build_tools }}"
+          # If sdkmanager does not know this platform name, AGP downloads it itself.
+          "$SDKMANAGER" --install "platforms;android-${{ steps.versions.outputs.sdk }}" \
+            || echo "Platform will be resolved by AGP"
+          # native/ffmpeg.sh expects the SDK at ~/Android/Sdk
+          mkdir -p "$HOME/Android"
+          ln -sfn "$ANDROID_HOME" "$HOME/Android/Sdk"
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+
+      - name: Restore ffmpeg cache
+        id: ffmpeg-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/ffmpeg
+          key: ffmpeg-${{ steps.versions.outputs.ndk }}-${{ steps.versions.outputs.min_sdk }}-${{ hashFiles('native/ffmpeg.sh', 'native/okhttp.c', 'native/okhttp.patch', 'native/src/main/jni/build_ffmpeg.sh') }}
+
+      - name: Build ffmpeg
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        working-directory: native
+        run: |
+          chmod +x ffmpeg.sh src/main/jni/build_ffmpeg.sh
+          echo "${{ steps.versions.outputs.min_sdk }}" | ./ffmpeg.sh
+          ls -R "$HOME/ffmpeg/android-libs"
+
+      # Saved right away so a later Gradle failure does not discard it.
+      - name: Save ffmpeg cache
+        if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/ffmpeg
+          key: ${{ steps.ffmpeg-cache.outputs.cache-primary-key }}
+
+      # README "Variant 2": build :native from source instead of compiled_native.
+      # Applied only in CI, never committed.
+      - name: Enable :native module
+        run: |
+          sed -i 's|^//include(":native")|include(":native")|' settings.gradle.kts
+          sed -i 's|//implementation(project(":native"))|implementation(project(":native"))|' app_fenrir/build.gradle.kts
+          sed -i '/implementation(fileTree("..\/compiled_native")/d' app_fenrir/build.gradle.kts
+          grep -n 'include(":native")' settings.gradle.kts
+          grep -n 'project(":native")' app_fenrir/build.gradle.kts
+          ! grep -n 'compiled_native' app_fenrir/build.gradle.kts
+
+      - name: Create temporary debug keystore
+        run: |
+          mkdir -p "$HOME/.android"
+          rm -f "$HOME/.android/debug.keystore"
+          keytool -genkeypair -v \
+            -keystore "$HOME/.android/debug.keystore" \
+            -storetype PKCS12 \
+            -storepass android -keypass android \
+            -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Assemble fenrir debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew :native:assembleDebug :app_fenrir:assembleFenrirDebug --stacktrace --max-workers=4
+
+      - name: Validate debug APK
+        run: |
+          APK_DIR=app_fenrir/build/outputs/apk/fenrir/debug
+          mapfile -t APKS < <(find "$APK_DIR" -maxdepth 1 -name '*.apk' -type f)
+          test "${#APKS[@]}" -eq 1
+          APK="${APKS[0]}"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/${{ steps.versions.outputs.build_tools }}"
+          unzip -t "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose "$APK"
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" > "$APK_DIR/apk-validation.txt"
+          grep -q "package: name='dev.ragnarok.fenrir'" "$APK_DIR/apk-validation.txt"
+          unzip -Z1 "$APK" > "$APK_DIR/apk-entries.txt"
+          IFS=',' read -ra ABIS <<< "${{ steps.versions.outputs.abis }}"
+          for ABI in "${ABIS[@]}"; do
+            grep -Fx "lib/$ABI/libfenrir_jni.so" "$APK_DIR/apk-entries.txt"
+          done
+          python3 pagination-tests/check-combined-apk.py "$APK"
+          python3 tools/release/verify-auth-apk.py "$APK" --expected-commit "$(git rev-parse HEAD)"
+          git rev-parse HEAD >> "$APK_DIR/apk-validation.txt"
+          sha256sum app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/dialog/directauth/DirectAuthIdVKPresenter.kt >> "$APK_DIR/apk-validation.txt"
+          sha256sum app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/fragment/comments/TopicCommentsPager.kt >> "$APK_DIR/apk-validation.txt"
+          sha256sum "$APK" >> "$APK_DIR/apk-validation.txt"
+          cat "$APK_DIR/apk-validation.txt"
+
+      - name: Upload native AAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-debug-aar
+          path: native/build/outputs/aar/*.aar
+          if-no-files-found: error
+
+      - name: Upload validation reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-reports
+          path: |
+            pagination-tests/build/test-results/
+            pagination-tests/build/reports/
+            build/reports/
+            app_fenrir/build/outputs/apk/fenrir/debug/apk-validation.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: fenrir-debug-apk
+          path: app_fenrir/build/outputs/apk/fenrir/debug/*.apk
+          if-no-files-found: error

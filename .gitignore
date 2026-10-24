@@ -2,3 +2,11 @@
 .gradle
 .idea
 local.properties
+
+/compiled_native/
+
+# Android private signing material must never be committed.
+*.keystore
+*.jks
+*.p12
+*.pfx

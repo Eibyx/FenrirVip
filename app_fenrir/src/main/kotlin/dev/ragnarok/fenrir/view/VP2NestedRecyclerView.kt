@@ -16,6 +16,11 @@ class VP2NestedRecyclerView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
 ) : RecyclerView(context, attrs) {
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        dev.ragnarok.fenrir.settings.ModernAppearance.applyTo(this)
+    }
+
     private val touchSlop: Int
     private var initialX = 0f
     private var initialY = 0f

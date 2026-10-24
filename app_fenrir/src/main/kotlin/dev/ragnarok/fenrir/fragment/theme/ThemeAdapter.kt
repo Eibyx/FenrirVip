@@ -54,10 +54,10 @@ class ThemeAdapter(private var data: List<ThemeValue>, context: Context) :
         holder.itemView.alpha = if (category.disabled) 0.55f else 1.0f
         val isSelected = currentId == category.id
         holder.title.text =
-            if (category.disabled) holder.itemView.context.getString(R.string.not_available) else category.name
-        if (category.name.nonNullNoEmpty()) {
+            if (category.disabled) holder.itemView.context.getString(R.string.not_available) else category.displayName(holder.itemView.context)
+        if (category.displayName(holder.itemView.context).nonNullNoEmpty()) {
             holder.special_title.visibility = View.VISIBLE
-            var name = category.name
+            var name = category.displayName(holder.itemView.context)
             if (name.length > 4) name = name.take(4)
             name = name.trim()
             holder.special_title.text = name
@@ -102,7 +102,7 @@ class ThemeAdapter(private var data: List<ThemeValue>, context: Context) :
         holder.itemView.alpha = if (category.disabled) 0.55f else 1.0f
         val isSelected = currentId == category.id
         holder.title.text =
-            if (category.disabled) holder.itemView.context.getString(R.string.not_available) else category.name
+            if (category.disabled) holder.itemView.context.getString(R.string.not_available) else category.displayName(holder.itemView.context)
         holder.primary.setBackgroundColor(if (isDark) category.colorNightPrimary else category.colorDayPrimary)
         holder.secondary.setBackgroundColor(if (isDark) category.colorNightSecondary else category.colorDaySecondary)
         holder.selected.visibility = if (isSelected) View.VISIBLE else View.GONE

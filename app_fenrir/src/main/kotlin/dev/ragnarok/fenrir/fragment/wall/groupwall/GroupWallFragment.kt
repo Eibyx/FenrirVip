@@ -102,6 +102,10 @@ class GroupWallFragment : AbsWallFragment<IGroupWallView, GroupWallPresenter>(),
                 presenter?.fireUrlClick(url)
             }
         }
+    private var coverResource: String? = null
+    private var coverBlacklisted = false
+    private var coverSupportsOpen = false
+    private var appliedCoverPrefs: Pair<Boolean, Boolean>? = null
     private var mHeaderHolder: GroupHeaderHolder? = null
     override fun displayBaseCommunityData(community: Community, details: CommunityDetails) {
         if (mHeaderHolder == null) return
@@ -271,7 +275,17 @@ class GroupWallFragment : AbsWallFragment<IGroupWallView, GroupWallPresenter>(),
         resource: String?,
         supportOpen: Boolean
     ) {
-        if (!Settings.get().main().isShow_wall_cover) return
+        coverResource = resource
+        coverBlacklisted = blacklisted
+        coverSupportsOpen = supportOpen
+        appliedCoverPrefs = Settings.get().main().isShow_wall_cover to
+            dev.ragnarok.fenrir.settings.ModernAppearance.flag(requireContext(), "modern_compact_headers")
+        with().cancelRequest(coverTarget)
+        if (!Settings.get().main().isShow_wall_cover ||
+            dev.ragnarok.fenrir.settings.ModernAppearance.flag(requireContext(), "modern_compact_headers")) {
+            mHeaderHolder?.vgCover?.background = null
+            return
+        }
         if (supportOpen) {
             mHeaderHolder?.vgCover?.setOnLongClickListener {
                 presenter?.fireAvatarPhotoClick(resource, null)
@@ -282,10 +296,11 @@ class GroupWallFragment : AbsWallFragment<IGroupWallView, GroupWallPresenter>(),
                 false
             }
         }
-        with().cancelRequest(coverTarget)
         if (resource.nonNullNoEmpty()) {
             val sks = with()
                 .load(resource)
+                .resize(resources.displayMetrics.widthPixels.coerceAtLeast(1), 0)
+                .onlyScaleDown()
                 .transform(BlurTransformation(6f, requireActivity()))
             if (blacklisted) {
                 sks.transform(MonochromeTransformation())
@@ -435,6 +450,21 @@ class GroupWallFragment : AbsWallFragment<IGroupWallView, GroupWallPresenter>(),
 
     override fun onResume() {
         super.onResume()
+        mHeaderHolder?.let { holder ->
+            val compact = dev.ragnarok.fenrir.settings.ModernAppearance.flag(requireContext(), "modern_compact_headers")
+            val padding = (resources.displayMetrics.density * (if (compact) 8 else 16)).toInt()
+            val avatarSize = if (compact) (64 * resources.displayMetrics.density).toInt()
+                else resources.getDimensionPixelSize(R.dimen.avatar_size_big)
+            for (avatar in arrayOf(holder.ivAvatarRoot, holder.ivAvatar)) {
+                if (avatar.layoutParams.width != avatarSize) {
+                    avatar.layoutParams = avatar.layoutParams.apply { width = avatarSize; height = avatarSize }
+                }
+            }
+            val prefs = Settings.get().main().isShow_wall_cover to compact
+            if (appliedCoverPrefs != prefs) displayCommunityCover(coverBlacklisted, coverResource, coverSupportsOpen)
+            holder.vgCover.setPadding(padding, padding, padding, padding)
+            setupPaganContent(holder.Runes, holder.paganSymbol)
+        }
         setToolbarTitle(this, R.string.community)
         setToolbarSubtitle(this, null)
     }

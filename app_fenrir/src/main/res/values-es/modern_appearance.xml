@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="modern_hide_decorations">Ocultar decoración local de las cabeceras</string>
+  <string name="modern_hide_decorations_summary">Oculta símbolos y runas decorativas. No elimina las portadas ni el contenido de las comunidades de VK.</string>
+  <string name="modern_compact_headers">Cabeceras de comunidad compactas</string>
+  <string name="modern_animations">Animaciones</string>
+  <string name="modern_motion">Estilo de animación</string>
+  <string name="modern_motion_summary">Respeta los ajustes de animación y accesibilidad de Android. Vuelve a abrir las otras pantallas para aplicar los cambios.</string>
+  <string-array name="modern_motion_names">
+    <item>Suaves</item>
+    <item>Reducidas</item>
+    <item>Desactivadas</item>
+  </string-array>
+  <string name="modern_custom_palette">Usar una paleta tonal personalizada</string>
+  <string name="modern_palette_summary">Android 12 o posterior en dispositivos compatibles. Genera colores Material coordinados para los temas claro y oscuro.</string>
+  <string name="modern_seed">Color de acento</string>
+</resources>
