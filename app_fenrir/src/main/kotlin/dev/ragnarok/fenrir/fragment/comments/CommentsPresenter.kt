@@ -1154,6 +1154,10 @@ class CommentsPresenter(
     private fun resolveTopicPosition() {
         val position = topicPosition ?: return
         val total = topicTotal ?: return
+        if (total == 0) {
+            view?.setToolbarSubtitle(getString(R.string.for_topic))
+            return
+        }
         view?.setToolbarSubtitle(getString(R.string.topic_page_position,
             position / COUNT + 1, maxOf(1, ((total.toLong() + COUNT - 1) / COUNT).toInt()), position))
     }
