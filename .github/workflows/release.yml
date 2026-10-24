@@ -182,7 +182,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: fenrir-modern-release
+          name: fenrir-modern-release-${{ steps.signing.outputs.available == 'true' && 'signed' || 'unsigned' }}
           path: app_fenrir/build/outputs/apk/fenrir/release/*.apk
           if-no-files-found: error
 
