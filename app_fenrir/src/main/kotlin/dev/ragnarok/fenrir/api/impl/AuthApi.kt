@@ -1,6 +1,7 @@
 package dev.ragnarok.fenrir.api.impl
 
 import dev.ragnarok.fenrir.Constants
+import dev.ragnarok.fenrir.api.auth.AuthCaptchaAnswer
 import dev.ragnarok.fenrir.Constants.DEVICE_COUNTRY_CODE
 import dev.ragnarok.fenrir.Includes
 import dev.ragnarok.fenrir.Includes.provideApplicationContext
@@ -161,7 +162,8 @@ class AuthApi(private val service: IDirectLoginServiceProvider) : IAuthApi {
         sakVersion: String?,
         flowType: String?,
         accessToken: String?,
-        v: String?
+        v: String?,
+        captcha: AuthCaptchaAnswer?
     ): Flow<VKApiValidateAccount> {
         return service.provideAuthService().flatMapConcat {
             it.validateAccount(
@@ -177,8 +179,13 @@ class AuthApi(private val service: IDirectLoginServiceProvider) : IAuthApi {
                 sakVersion,
                 flowType,
                 accessToken,
-                v
-            ).map(extractResponseWithErrorHandling())
+                v,
+                captcha
+            ).map { response ->
+                // Surface API 14 to the presenter. Resolving a challenge never submits login automatically.
+                response.error?.let { error -> throw ApiException(error) }
+                response.response ?: throw AuthException("invalid_response", null)
+            }
         }
     }
 
@@ -396,6 +403,8 @@ class AuthApi(private val service: IDirectLoginServiceProvider) : IAuthApi {
             }
 
             ApiErrorCodes.CAPTCHA_NEED -> {
+                // No redirect/solution means there is nothing to replay, even on other auth APIs.
+                handle = false
                 val redirectUri = error.redirectUri
                 if (redirectUri.nonNullNoEmpty()) {
                     val provider = Includes.vkIdCaptchaProvider
@@ -418,6 +427,7 @@ class AuthApi(private val service: IDirectLoginServiceProvider) : IAuthApi {
                     }
                     if (successToken.nonNullNoEmpty()) {
                         params["success_token"] = successToken
+                        handle = true
                     } else {
                         handle = false
                     }

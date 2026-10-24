@@ -5,4 +5,12 @@
     <string name="auth_invalid_response">VK returned an incomplete or unsupported sign-in response. Start again manually.</string>
     <string name="auth_enter_code">Enter the verification code requested by VK.</string>
     <string name="auth_complete_captcha">Complete the VK verification before continuing.</string>
+    <string name="auth_network_failed">The connection failed during sign-in. Check the network before retrying manually. No automatic retry was made.</string>
+    <string name="auth_http_failed">The sign-in server returned an HTTP error. Check the HTTP code in the safe diagnostic below. No automatic retry was made.</string>
+    <string name="auth_api_failed">VK rejected this API request. Check the API code in the safe diagnostic below. This does not by itself indicate an invalid SID. No automatic retry was made.</string>
+    <string name="auth_credentials_rejected">VK rejected authentication of this request. Check the API or OAuth code in the safe diagnostic below. No automatic retry was made.</string>
+    <string name="auth_captcha_ready">CAPTCHA answer received. Press Next or Sign in to submit it manually. No sign-in request was made automatically.</string>
+    <string name="auth_captcha_unavailable">VK requires a CAPTCHA (API 14), but no usable challenge is available for this step. No blind retry was made. Cancel and start again manually when VK allows it.</string>
+    <string name="auth_image_captcha_title">VK CAPTCHA</string>
+    <string name="auth_image_captcha_hint">Text from the image</string>
 </resources>

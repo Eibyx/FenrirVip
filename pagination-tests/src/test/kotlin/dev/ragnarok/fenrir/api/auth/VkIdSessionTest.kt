@@ -222,7 +222,7 @@ class VkIdSessionTest {
         assertEquals(AuthFailurePolicy.Kind.SID_INVALID, AuthFailurePolicy.classify(100, null, "sid is invalid"))
         assertEquals(AuthFailurePolicy.Kind.SID_INVALID, AuthFailurePolicy.classify(null, "invalid_grant", "sid is invalid"))
         assertEquals(AuthFailurePolicy.Kind.SID_INVALID, AuthFailurePolicy.classify(null, "sid_expired", null))
-        assertEquals(AuthFailurePolicy.Kind.OTHER, AuthFailurePolicy.classify(100, null, "inside validation request"))
+        assertEquals(AuthFailurePolicy.Kind.API, AuthFailurePolicy.classify(100, null, "inside validation request"))
     }
 
     @Test fun rejectedAccountTokenExchangeDoesNotReuseTheAccountSid() {

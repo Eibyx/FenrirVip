@@ -3,10 +3,13 @@ package dev.ragnarok.fenrir.dialog.directauth
 import android.util.Log
 import dev.ragnarok.fenrir.BuildConfig
 import dev.ragnarok.fenrir.api.auth.AuthFailurePolicy
+import dev.ragnarok.fenrir.api.auth.AccountCaptchaChallenge
 import dev.ragnarok.fenrir.api.auth.VkIdSession
 import dev.ragnarok.fenrir.api.exceptions.ApiException
 import dev.ragnarok.fenrir.api.exceptions.AuthException
 import dev.ragnarok.fenrir.api.rest.HttpException
+import java.io.IOException
+import kotlinx.serialization.SerializationException
 
 internal object VkIdDiagnostics {
     fun cause(error: Throwable): Throwable {
@@ -14,7 +17,8 @@ internal object VkIdDiagnostics {
             result is ApiException || result is AuthException ||
                 result is dev.ragnarok.fenrir.api.exceptions.NeedValidationException ||
                 result is dev.ragnarok.fenrir.api.exceptions.VKIdCaptchaNeedException ||
-                result is HttpException
+                result is HttpException || result is IOException || result is SerializationException ||
+                result is VkIdSession.MissingSession
         }
     }
 
@@ -22,28 +26,41 @@ internal object VkIdDiagnostics {
         val value = cause(error)
         return AuthFailurePolicy.classify(
             apiCode(value),
-            (value as? AuthException)?.code, value.message, (value as? HttpException)?.code
+            (value as? AuthException)?.code,
+            // Only server authentication/API descriptions can identify a server SID error.
+            value.message.takeIf { value is ApiException || value is AuthException },
+            (value as? HttpException)?.code,
+            networkFailure = value is IOException, apiFailure = value is ApiException,
+            authenticationFailure = value is AuthException,
+            missingSession = value is VkIdSession.MissingSession,
+            captchaRequired = value is dev.ragnarok.fenrir.api.exceptions.VKIdCaptchaNeedException,
+            invalidResponse = value is SerializationException
         )
     }
 
     private fun apiCode(error: Throwable?) = (error as? ApiException)?.error?.errorCode
-        ?: (error as? AuthException)?.code?.toIntOrNull()?.takeIf { it in 0..99999 }
+        ?: (error as? AuthException)?.code?.toIntOrNull()
 
     fun record(request: VkIdSession.Request, event: Event, session: VkIdSession, error: Throwable? = null, verificationMethod: String? = null): String {
         val value = error?.let(::cause)
-        val apiCode = apiCode(value)?.toString() ?: "none"
-        val http = (value as? HttpException)?.code?.toString() ?: "none"
         val oauth = when (value) {
             is dev.ragnarok.fenrir.api.exceptions.NeedValidationException -> "need_validation"
             is dev.ragnarok.fenrir.api.exceptions.VKIdCaptchaNeedException -> "need_captcha"
-            else -> AuthFailurePolicy.safeOAuthCode((value as? AuthException)?.code)
+            else -> (value as? AuthException)?.code
+        }
+        val codes = AuthFailurePolicy.safeCodes(apiCode(value), oauth, (value as? HttpException)?.code)
+        val challenge = when {
+            value is ApiException && value.error.errorCode == 14 -> AccountCaptchaChallenge(request,
+                value.error.redirectUri, value.error.captchaSid, value.error.captchaImg).kind.name
+            value is dev.ragnarok.fenrir.api.exceptions.VKIdCaptchaNeedException -> "WEB"
+            else -> "none"
         }
         val method = verificationMethod?.takeIf { it in setOf("password", "push", "email", "sms", "callreset", "reserve_code", "codegen") } ?: "other"
         val endpoint = if (request.operation == VkIdSession.Operation.SEND_OTP && method in setOf("sms", "push", "email", "callreset"))
             request.operation.method + VkIdSession.otpSuffix(method) else request.operation.method
         val result = "build=${BuildConfig.SOURCE_REVISION.take(12)} variant=${BuildConfig.BUILD_TYPE} " +
-            "method=$endpoint verification=$method event=${event.name} api_code=$apiCode oauth=$oauth http=$http " +
-            "kind=${value?.let(::kind)?.name ?: "none"} ${session.diagnosticState()}"
+            "method=$endpoint verification=$method event=${event.name} $codes request_sid_present=${!request.sid.isNullOrBlank()} " +
+            "kind=${value?.let(::kind)?.name ?: "none"} captcha=$challenge ${session.diagnosticState()}"
         // Never pass Throwable, URLs, request/response bodies, or opaque identifiers to Log.
         Log.i("FenrirAuth", result)
         return result

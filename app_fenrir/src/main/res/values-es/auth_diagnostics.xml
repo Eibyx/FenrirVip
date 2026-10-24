@@ -5,4 +5,12 @@
     <string name="auth_invalid_response">VK devolvió una respuesta de inicio de sesión incompleta o no compatible. Empieza de nuevo manualmente.</string>
     <string name="auth_enter_code">Introduce el código de verificación solicitado por VK.</string>
     <string name="auth_complete_captcha">Completa la verificación de VK antes de continuar.</string>
+    <string name="auth_network_failed">Falló la conexión durante el acceso. Revisa la red antes de reintentarlo manualmente. No se realizó ningún reintento automático.</string>
+    <string name="auth_http_failed">El servidor de acceso devolvió un error HTTP. Consulta el código HTTP en el diagnóstico seguro de abajo. No se realizó ningún reintento automático.</string>
+    <string name="auth_api_failed">VK rechazó esta solicitud de API. Consulta el código API en el diagnóstico seguro de abajo. Esto por sí solo no indica un SID inválido. No se realizó ningún reintento automático.</string>
+    <string name="auth_credentials_rejected">VK rechazó la autenticación de esta solicitud. Consulta el código API u OAuth en el diagnóstico seguro de abajo. No se realizó ningún reintento automático.</string>
+    <string name="auth_captcha_ready">Respuesta de CAPTCHA recibida. Pulsa Siguiente o Iniciar sesión para enviarla manualmente. No se realizó ninguna solicitud de acceso automática.</string>
+    <string name="auth_captcha_unavailable">VK exige una CAPTCHA (API 14), pero no hay un desafío utilizable para este paso. No se repitió la solicitud sin resolverlo. Cancela e inicia el acceso de nuevo manualmente cuando VK lo permita.</string>
+    <string name="auth_image_captcha_title">CAPTCHA de VK</string>
+    <string name="auth_image_captcha_hint">Texto de la imagen</string>
 </resources>

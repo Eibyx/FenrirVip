@@ -8,6 +8,8 @@ import dev.ragnarok.fenrir.Includes.networkInterfaces
 import dev.ragnarok.fenrir.R
 import dev.ragnarok.fenrir.api.Auth
 import dev.ragnarok.fenrir.api.auth.AuthFailurePolicy
+import dev.ragnarok.fenrir.api.auth.AccountCaptchaChallenge
+import dev.ragnarok.fenrir.api.auth.AuthCaptchaAnswer
 import dev.ragnarok.fenrir.api.auth.VkIdSession
 import dev.ragnarok.fenrir.api.exceptions.ApiException
 import dev.ragnarok.fenrir.api.exceptions.AuthException
@@ -43,6 +45,9 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
     private var validateMethod: EcosystemGetVerificationMethods.Method? = null
     private var requiresPassword = false
     private var requiredVKIdCaptcha: VKIdCaptcha? = null
+    private var accountCaptcha: AccountCaptchaChallenge? = null
+    private var accountCaptchaAnswer: AuthCaptchaAnswer? = null
+    private var accountCaptchaDiagnostic: String? = null
     private var redirectUrl: String? = null
     private val tokenNeedCode get() = session.needsTokenCode
 
@@ -57,8 +62,22 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
         resolveLoadingViews()
     }
 
-    fun fireVKIdCaptchaSuccess(token: String?) {
-        requiredVKIdCaptcha?.successToken = token
+    fun fireVKIdCaptchaSuccess(request: VkIdSession.Request, token: String?) {
+        val challenge = accountCaptcha
+        if (challenge != null) {
+            accountCaptchaAnswer = challenge.webAnswer(request, token) ?: return
+            setInfoOrErrorMessage(getString(R.string.auth_captcha_ready) + "\n" + accountCaptchaDiagnostic.orEmpty(), false)
+        } else {
+            val pending = requiredVKIdCaptcha?.takeIf { it.request === request } ?: return
+            pending.successToken = token?.takeIf { it.isNotBlank() } ?: return
+            setInfoOrErrorMessage(R.string.auth_captcha_ready, false)
+        }
+        // Completion only stores the answer. The user must press Next/Login to submit it.
+    }
+
+    fun fireImageCaptchaSuccess(request: VkIdSession.Request, key: String?) {
+        accountCaptchaAnswer = accountCaptcha?.imageAnswer(request, key) ?: return
+        setInfoOrErrorMessage(getString(R.string.auth_captcha_ready) + "\n" + accountCaptchaDiagnostic.orEmpty(), false)
     }
 
     private fun resolveFlow(@AuthFlow flow: Int) {
@@ -201,7 +220,7 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
 
     fun fireUserNameEdit(sequence: CharSequence?) {
         val next = sequence?.toString()
-        if (username != next && (session.busy || session.phase != VkIdSession.Phase.EMPTY)) {
+        if (username != next && (session.busy || session.phase != VkIdSession.Phase.EMPTY || accountCaptcha != null)) {
             compositeJob.clear()
             restartAuthFlow(null)
         }
@@ -252,12 +271,21 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
     private fun doValidateAccount() {
         val login = username?.trim()
         if (login.isNullOrEmpty()) { view?.cancelAuth(); return }
-        val anonymous = Settings.get().accounts().anonymToken
-        if (!anonymous.isValid()) {
-            setInfoOrErrorMessage(R.string.anonym_token_not_valid, true)
+        if (accountCaptcha != null && accountCaptchaAnswer == null) {
+            showAccountCaptcha()
+            return
+        }
+        // A solved challenge stays bound to the original phone and anonymous token.
+        val anonymous = if (accountCaptcha != null) attemptToken else Settings.get().accounts().anonymToken
+        if (anonymous?.isValid() != true) {
+            restartAuthFlow(getString(R.string.anonym_token_not_valid))
             return
         }
         val request = session.beginAccount() ?: return
+        val captchaAnswer = accountCaptchaAnswer
+        accountCaptcha = null
+        accountCaptchaAnswer = null
+        accountCaptchaDiagnostic = null
         attemptToken = anonymous
         attemptUsername = login
         validateFlow = null
@@ -275,7 +303,7 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
             supportedWays = "push,email,sms,callreset,password,reserve_code,codegen",
             login = login, forcePassword = false, passkeySupported = false,
             sakVersion = Constants.VK_ANDROID_APP_SAK_VERSION, flowType = "auth_without_password",
-            accessToken = anonymous.token, v = Constants.AUTH_API_VERSION
+            accessToken = anonymous.token, v = Constants.AUTH_API_VERSION, captcha = captchaAnswer
         ).fromIOToMain({ result ->
             if (!current(request)) return@fromIOToMain
             session.account(request, result.sid)
@@ -394,8 +422,6 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
         }, { handleFailure(request, it) }))
     }
 
-    private fun isSidError(error: Throwable) = VkIdDiagnostics.kind(error) == AuthFailurePolicy.Kind.SID_INVALID
-
     private fun restartAuthFlow(message: String?) {
         session.reset()
         attemptToken = null
@@ -406,6 +432,9 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
         validationCode = null
         requiresPassword = false
         requiredVKIdCaptcha = null
+        accountCaptcha = null
+        accountCaptchaAnswer = null
+        accountCaptchaDiagnostic = null
         redirectUrl = null
         authProfile = null
         setLoadingNow(false)
@@ -419,29 +448,69 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
         if (!current(request)) return
         val error = VkIdDiagnostics.cause(thrown)
         val diagnostic = VkIdDiagnostics.record(request, VkIdDiagnostics.Event.ERROR, session, error, validateMethod?.name)
-        val captcha = error is VKIdCaptchaNeedException
+        val kind = VkIdDiagnostics.kind(error)
+        val captcha = kind == AuthFailurePolicy.Kind.CAPTCHA
         val uncertain = error !is AuthException && error !is ApiException && !captcha
         session.failed(request, explicitCaptcha = captcha, uncertain = uncertain)
         setLoadingNow(false)
-        when {
-            VkIdDiagnostics.kind(error) == AuthFailurePolicy.Kind.THROTTLED -> {
+        val recovery = AuthFailurePolicy.recovery(kind, session.phase)
+        when (recovery) {
+            AuthFailurePolicy.Recovery.BLOCK -> {
                 session.block((error as? dev.ragnarok.fenrir.api.rest.HttpException)?.retryAfterSeconds)
                 restartAuthFlow(getString(R.string.auth_temporarily_limited) + "\n" + diagnostic)
             }
-            isSidError(error) || error is VkIdSession.MissingSession || session.phase == VkIdSession.Phase.EMPTY ->
+            AuthFailurePolicy.Recovery.RESTART_SESSION ->
                 restartAuthFlow(getString(R.string.auth_session_expired) + "\n" + diagnostic)
-            error is VKIdCaptchaNeedException -> {
-                requiredVKIdCaptcha = VKIdCaptcha(error.redirect_uri, error.domain, null)
-                view?.openVKIdCaptcha(error.redirect_uri, error.domain)
-                setInfoOrErrorMessage(R.string.auth_complete_captcha, false)
+            AuthFailurePolicy.Recovery.CAPTCHA -> {
+                when {
+                    error is ApiException && request.operation == VkIdSession.Operation.ACCOUNT -> {
+                        accountCaptcha = AccountCaptchaChallenge(request, error.error.redirectUri,
+                            error.error.captchaSid, error.error.captchaImg)
+                        accountCaptchaAnswer = null
+                        accountCaptchaDiagnostic = diagnostic
+                        showAccountCaptcha()
+                    }
+                    error is VKIdCaptchaNeedException -> {
+                        requiredVKIdCaptcha = VKIdCaptcha(request, error.redirect_uri, error.domain, null)
+                        view?.openVKIdCaptcha(request, error.redirect_uri, error.domain)
+                        setInfoOrErrorMessage(getString(R.string.auth_complete_captcha) + "\n" + diagnostic, false)
+                    }
+                    else -> setInfoOrErrorMessage(getString(R.string.auth_captcha_unavailable) + "\n" + diagnostic, true)
+                }
             }
-            else -> {
+            AuthFailurePolicy.Recovery.RESTART_REQUEST, AuthFailurePolicy.Recovery.RETRY_MANUALLY -> {
+                val message = getString(when (kind) {
+                    AuthFailurePolicy.Kind.NETWORK -> R.string.auth_network_failed
+                    AuthFailurePolicy.Kind.HTTP -> R.string.auth_http_failed
+                    AuthFailurePolicy.Kind.API -> R.string.auth_api_failed
+                    AuthFailurePolicy.Kind.AUTHENTICATION -> R.string.auth_credentials_rejected
+                    AuthFailurePolicy.Kind.INVALID_RESPONSE -> R.string.auth_invalid_response
+                    else -> R.string.auth_request_failed
+                }) + "\n" + diagnostic
+                if (recovery == AuthFailurePolicy.Recovery.RESTART_REQUEST) {
+                    // A discarded/absent session needs a fresh attempt, without relabelling the cause as SID.
+                    restartAuthFlow(message)
+                    return
+                }
                 validationCode = null
                 view?.cleanCode()
-                setInfoOrErrorMessage(getString(R.string.auth_request_failed) + "\n" + diagnostic, true)
+                setInfoOrErrorMessage(message, true)
                 if (currentFlow == AuthFlow.DO_AUTH && !tokenNeedCode && validateMethod?.name == "password")
                     resolveFlow(AuthFlow.PASSWORD)
             }
+        }
+    }
+
+    private fun showAccountCaptcha() {
+        val challenge = accountCaptcha ?: return
+        val available = challenge.kind != AccountCaptchaChallenge.Kind.UNAVAILABLE
+        setInfoOrErrorMessage(getString(if (available) R.string.auth_complete_captcha
+            else R.string.auth_captcha_unavailable) + "\n" + accountCaptchaDiagnostic.orEmpty(), !available)
+        when (challenge.kind) {
+            AccountCaptchaChallenge.Kind.WEB -> view?.openVKIdCaptcha(challenge.request,
+                challenge.redirectUri, "https://" + Settings.get().main().apiDomain)
+            AccountCaptchaChallenge.Kind.IMAGE -> view?.openImageCaptcha(challenge.request, challenge.image.orEmpty())
+            AccountCaptchaChallenge.Kind.UNAVAILABLE -> Unit // No challenge to solve; never replay blindly.
         }
     }
 
@@ -538,5 +607,6 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
 
     fun fireSavePasswordChanged(isSave: Boolean) { needSavePassword = isSave }
 
-    private class VKIdCaptcha(val redirectUri: String, val domain: String, var successToken: String?)
+    private class VKIdCaptcha(val request: VkIdSession.Request, val redirectUri: String,
+        val domain: String, var successToken: String?)
 }

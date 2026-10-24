@@ -22,6 +22,8 @@ with zipfile.ZipFile(args.apk) as apk:
     expected_paths = {
         'dialog/directauth/DirectAuthIdVKPresenter.kt', 'dialog/directauth/VkIdDiagnostics.kt',
         'api/auth/VkIdSession.kt', 'api/auth/AuthFailurePolicy.kt', 'api/impl/AuthApi.kt',
+        'api/auth/AccountCaptchaChallenge.kt', 'api/interfaces/IAuthApi.kt',
+        'dialog/directauth/IDirectAuthIdVKView.kt', 'dialog/directauth/DirectAuthIdVKDialog.kt',
         'api/exceptions/AuthException.kt', 'api/exceptions/NeedValidationException.kt', 'api/rest/HttpException.kt',
         'api/services/IAuthService.kt', 'api/rest/SimplePostHttp.kt', 'util/OkHttp3LoggingInterceptor.kt',
     }
@@ -33,6 +35,7 @@ with zipfile.ZipFile(args.apk) as apk:
     dex = [apk.read(name) for name in apk.namelist() if re.fullmatch(r'classes\d*\.dex', name)]
     for name in ('dialog/directauth/DirectAuthIdVKPresenter', 'dialog/directauth/VkIdDiagnostics',
                  'api/auth/VkIdSession', 'api/auth/AuthFailurePolicy',
+                 'api/auth/AccountCaptchaChallenge',
                  'fragment/comments/TopicCommentsPager', 'settings/ModernAppearance'):
         descriptor = ('Ldev/ragnarok/fenrir/' + name + ';').encode()
         assert any(descriptor in data for data in dex), 'Implementation absent from DEX: ' + name

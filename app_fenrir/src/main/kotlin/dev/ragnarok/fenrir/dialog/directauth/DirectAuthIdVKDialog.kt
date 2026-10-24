@@ -3,10 +3,12 @@ package dev.ragnarok.fenrir.dialog.directauth
 import android.app.Dialog
 import android.content.Context
 import android.os.Bundle
+import android.text.InputType
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.ImageView
+import android.widget.LinearLayout
 import androidx.annotation.StringRes
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -17,6 +19,9 @@ import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.textview.MaterialTextView
 import dev.ragnarok.fenrir.Extra
 import dev.ragnarok.fenrir.BuildConfig
+import dev.ragnarok.fenrir.api.auth.VkIdSession
+import com.squareup.picasso3.MemoryPolicy
+import com.squareup.picasso3.NetworkPolicy
 import dev.ragnarok.fenrir.R
 import dev.ragnarok.fenrir.activity.captcha.VKCaptcha
 import dev.ragnarok.fenrir.activity.captcha.VKCaptchaResult
@@ -211,7 +216,7 @@ class DirectAuthIdVKDialog : BaseMvpDialogFragment<DirectAuthIdVKPresenter, IDir
         }
     }
 
-    override fun openVKIdCaptcha(redirectUri: String?, domain: String?) {
+    override fun openVKIdCaptcha(request: VkIdSession.Request, redirectUri: String?, domain: String?) {
         redirectUri ?: return
         domain ?: return
         VKCaptcha.openCaptcha(
@@ -220,7 +225,7 @@ class DirectAuthIdVKDialog : BaseMvpDialogFragment<DirectAuthIdVKPresenter, IDir
                 override fun onResult(result: VKCaptchaResult) {
                     result.token.nonNullNoEmpty {
                         lazyPresenter {
-                            fireVKIdCaptchaSuccess(it)
+                            fireVKIdCaptchaSuccess(request, it)
                         }
                     }
                 }
@@ -229,6 +234,44 @@ class DirectAuthIdVKDialog : BaseMvpDialogFragment<DirectAuthIdVKPresenter, IDir
                 }
             }
         )
+    }
+
+    override fun openImageCaptcha(request: VkIdSession.Request, image: String) {
+        val context = requireContext()
+        val padding = (24 * resources.displayMetrics.density).toInt()
+        val root = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, padding / 2, padding, 0)
+        }
+        val picture = ImageView(context).apply { adjustViewBounds = true }
+        root.addView(picture, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT,
+            (120 * resources.displayMetrics.density).toInt()))
+        val input = TextInputEditText(context).apply {
+            hint = getString(R.string.auth_image_captcha_hint)
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
+                InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            isSaveEnabled = false
+        }
+        val field = TextInputLayout(context).apply { addView(input) }
+        root.addView(field)
+        val dialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.auth_image_captcha_title)
+            .setView(root)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.button_ok) { _, _ ->
+                lazyPresenter { fireImageCaptchaSuccess(request, input.text?.toString()) }
+                input.text?.clear()
+            }.create()
+        dialog.setOnDismissListener {
+            PicassoInstance.with().cancelRequest(picture)
+            input.text?.clear()
+        }
+        // CAPTCHA images/identifiers must not survive in image caches.
+        PicassoInstance.with().load(image)
+            .memoryPolicy(MemoryPolicy.NO_CACHE, MemoryPolicy.NO_STORE)
+            .networkPolicy(NetworkPolicy.NO_CACHE, NetworkPolicy.NO_STORE)
+            .into(picture)
+        dialog.show()
     }
 
     override fun hideKeyboard() {
