@@ -5,6 +5,8 @@ import zipfile
 expected = {
     b'Ldev/ragnarok/fenrir/dialog/directauth/DirectAuthIdVKPresenter;',
     b'Ldev/ragnarok/fenrir/fragment/comments/TopicCommentsPager;',
+    b'Ldev/ragnarok/fenrir/fragment/comments/CommentsPresenter;',
+    b'fireTopicJump',
 }
 found = set()
 with zipfile.ZipFile(sys.argv[1]) as apk:
@@ -14,4 +16,4 @@ with zipfile.ZipFile(sys.argv[1]) as apk:
             data = apk.read(name)
             found.update(descriptor for descriptor in expected if descriptor in data)
 assert found == expected, 'APK missing implementations: ' + repr(expected - found)
-print('APK contains DirectAuthIdVKPresenter and TopicCommentsPager (debug DEX check)')
+print('APK contains authentication, topic pager and direct-navigation implementations (debug DEX check)')

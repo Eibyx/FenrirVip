@@ -62,6 +62,23 @@ for (const main of [{count:0,items:[]},false]) {
   assert.equal(calls,1); // no unsafe boundary probes on empty/failed pages
   checks++;
 }
+for (const sort of ['asc','desc']) {
+  for (const offset of [0,80,1560,2000]) {
+    const calls=[];
+    const result=execute({groups:{getById:()=>({groups:[{admin_level:2}]})},board:{getComments:p=>{
+      calls.push(p);
+      return {count:3000,items:Array.from({length:20},(_,i)=>({id:sort==='asc'?offset+i:2999-offset-i}))};
+    }}}, {source_type:'topic',owner_id:-42,source_id:123,offset,count:20,sort,start_comment_id:null,comment_id:0});
+    assert.equal(calls.length,1); // direct high offsets must never scan previous pages
+    assert.equal(calls[0].offset,offset);
+    assert.equal(calls[0].count,20);
+    assert.equal(calls[0].sort,sort);
+    assert.equal('start_comment_id' in calls[0],false);
+    assert.equal(result.main.count,3000);
+    assert.equal(result.main.items.length,20);
+    checks++;
+  }
+}
 console.log(`${checks} production VKScript fixture cases passed (mock API, not live VK)`);
 '''.replace('CODE', json.dumps(code))
 subprocess.run(['node', '-e', script], check=True)
