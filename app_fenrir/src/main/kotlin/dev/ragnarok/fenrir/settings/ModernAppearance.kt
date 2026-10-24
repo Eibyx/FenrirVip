@@ -16,7 +16,8 @@ object ModernAppearance {
         else getPreferences(context).getString("modern_motion", "smooth") ?: "smooth"
 
     fun applyPalette(activity: android.app.Activity) {
-        if (!flag(activity, "modern_custom_palette")) return
+        if (!flag(activity, "modern_custom_palette") ||
+            !com.google.android.material.color.DynamicColors.isDynamicColorAvailable()) return
         val color = getPreferences(activity).getInt("modern_seed", 0xFF346096.toInt())
         com.google.android.material.color.DynamicColors.applyToActivityIfAvailable(
             activity,
@@ -24,6 +25,9 @@ object ModernAppearance {
                 .setContentBasedSource(color)
                 .build()
         )
+        // Legacy Fenrir views use additional color attributes. Bind them to the same
+        // Material roles so a custom accent never leaves preset-colored icons/bubbles.
+        activity.theme.applyStyle(dev.ragnarok.fenrir.R.style.Modern_CustomPalette, true)
     }
 
     fun applyTo(list: RecyclerView) {

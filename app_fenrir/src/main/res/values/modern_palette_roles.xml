@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Modern.CustomPalette" parent="">
+        <item name="icon_color_active">?attr/colorPrimary</item>
+        <item name="icon_color_inactive">?attr/colorOnSurfaceVariant</item>
+        <item name="dividerColor">?attr/colorOutlineVariant</item>
+        <item name="my_messages_bubble_color">?attr/colorPrimaryContainer</item>
+        <item name="my_messages_secondary_bubble_color">?attr/colorPrimaryContainer</item>
+        <item name="message_bubble_color">?attr/colorSurfaceContainerHigh</item>
+        <item name="toolbar_left_icon_color">?attr/colorPrimary</item>
+    </style>
+</resources>
