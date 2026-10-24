@@ -126,7 +126,7 @@ internal class CommentsApi(accountId: Long, provider: IServiceProvider) :
                             "        \"extended\":\"1\"});\n" +
                             "}\n" +
                             "\n" +
-                            "var first_id;\n" +
+                            "var first_id = 0;\n" +
                             "if(source_type == \"post\"){\n" +
                             "   if(comment_id != 0)\n" +
                             "   {\n" +
@@ -156,7 +156,7 @@ internal class CommentsApi(accountId: Long, provider: IServiceProvider) :
                             "\n" +
                             "// Topic boundaries are tracked by raw offsets and count.\n" +
                             "\n" +
-                            "var last_id;\n" +
+                            "var last_id = 0;\n" +
                             "if(source_type == \"post\"){\n" +
                             "    if(comment_id != 0)\n" +
                             "    {\n" +
