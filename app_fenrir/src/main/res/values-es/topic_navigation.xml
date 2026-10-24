@@ -1,0 +1,14 @@
+<resources>
+    <string name="topic_go_page">Ir a página</string>
+    <string name="topic_go_offset">Ir a offset</string>
+    <string name="topic_page_number">Número de página (20 comentarios por página)</string>
+    <string name="topic_offset_number">Offset (desde cero)</string>
+    <string name="topic_go">Ir</string>
+    <string name="topic_invalid_position">Introduce una posición válida dentro del límite numérico admitido</string>
+    <string name="topic_position_unavailable">Esta posición no está disponible. Se ha conservado tu posición anterior.</string>
+    <string name="topic_page_position">Página %1$d de %2$d · offset %3$d</string>
+    <string name="topic_first_page">Primera página</string>
+    <string name="topic_previous_page">Página anterior</string>
+    <string name="topic_next_page">Página siguiente</string>
+    <string name="topic_last_page">Última página</string>
+</resources>
