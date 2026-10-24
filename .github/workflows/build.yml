@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Free disk space
         run: |
@@ -150,6 +152,7 @@ jobs:
             grep -Fx "lib/$ABI/libfenrir_jni.so" "$APK_DIR/apk-entries.txt"
           done
           python3 pagination-tests/check-combined-apk.py "$APK"
+          python3 tools/release/verify-auth-apk.py "$APK" --expected-commit "$(git rev-parse HEAD)"
           git rev-parse HEAD >> "$APK_DIR/apk-validation.txt"
           sha256sum app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/dialog/directauth/DirectAuthIdVKPresenter.kt >> "$APK_DIR/apk-validation.txt"
           sha256sum app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/fragment/comments/TopicCommentsPager.kt >> "$APK_DIR/apk-validation.txt"

@@ -24,7 +24,7 @@ Community covers are resized to at most the display width before the existing Pi
 
 ## Existing fixes and sessions
 
-DirectAuthIdVKPresenter remains byte-identical to the integrated login fix (SHA256 `fed19e70056512dbf49863323f267d423d27c4877a500bd0c4e77d0dd502ccb4`). Topic pagination, direct page navigation, offset navigation, staged cursor handling, VK execute error handling and their tests are retained. Account/token storage remains in the existing persistent SharedPreferences; this change adds no logout/clear-on-exit behavior. Real VK login, session restoration after process death, and end-to-end LOAD MORE still require an authenticated device test.
+The original login integration was byte-identical through 95309fc9 (SHA256 `fed19e70056512dbf49863323f267d423d27c4877a500bd0c4e77d0dd502ccb4`). A subsequent SID regression report now has a stateful session correction and safe diagnostics; see [the VK ID investigation](VK_ID_SESSION_INVESTIGATION.md) for verified defects and live-VK limitations. Topic pagination, direct page navigation, offset navigation, staged cursor handling, VK execute error handling and their tests are retained. Account/token storage remains in the existing persistent SharedPreferences; this change adds no logout/clear-on-exit behavior. Real VK login, session restoration after process death, and end-to-end LOAD MORE still require an authenticated device test. Release publication is suspended pending that validation.
 
 ## Build, signing and publication
 

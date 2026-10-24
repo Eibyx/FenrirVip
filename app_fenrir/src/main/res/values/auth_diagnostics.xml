@@ -1,0 +1,8 @@
+<resources>
+    <string name="auth_session_expired">VK rejected or did not return the session for this step. Start sign-in again manually. No automatic retry was made.</string>
+    <string name="auth_temporarily_limited">VK has temporarily limited sign-in. Wait until VK allows access again. Fenrir will not repeat requests automatically.</string>
+    <string name="auth_request_failed">The sign-in step failed. Check your connection or the code before trying again. The diagnostic below contains no credentials.</string>
+    <string name="auth_invalid_response">VK returned an incomplete or unsupported sign-in response. Start again manually.</string>
+    <string name="auth_enter_code">Enter the verification code requested by VK.</string>
+    <string name="auth_complete_captcha">Complete the VK verification before continuing.</string>
+</resources>

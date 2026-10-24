@@ -3,6 +3,9 @@ repositories { mavenCentral() }
 sourceSets.main {
     kotlin.srcDir("../app_fenrir/src/main/kotlin")
     kotlin.include("dev/ragnarok/fenrir/fragment/comments/TopicCommentsPager.kt")
+    kotlin.include("dev/ragnarok/fenrir/api/auth/*.kt")
+    kotlin.include("dev/ragnarok/fenrir/api/exceptions/AuthException.kt")
+    kotlin.include("dev/ragnarok/fenrir/api/exceptions/NeedValidationException.kt")
 }
 dependencies {
     testImplementation("junit:junit:4.13.2")

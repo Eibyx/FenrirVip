@@ -1,0 +1,8 @@
+<resources>
+    <string name="auth_session_expired">VK rechazó o no devolvió la sesión de este paso. Inicia el acceso de nuevo manualmente. No se realizó ningún reintento automático.</string>
+    <string name="auth_temporarily_limited">VK ha limitado temporalmente el inicio de sesión. Espera hasta que VK permita el acceso de nuevo. Fenrir no repetirá las solicitudes automáticamente.</string>
+    <string name="auth_request_failed">El paso de inicio de sesión falló. Revisa la conexión o el código antes de reintentarlo. El diagnóstico de abajo no contiene credenciales.</string>
+    <string name="auth_invalid_response">VK devolvió una respuesta de inicio de sesión incompleta o no compatible. Empieza de nuevo manualmente.</string>
+    <string name="auth_enter_code">Introduce el código de verificación solicitado por VK.</string>
+    <string name="auth_complete_captcha">Completa la verificación de VK antes de continuar.</string>
+</resources>

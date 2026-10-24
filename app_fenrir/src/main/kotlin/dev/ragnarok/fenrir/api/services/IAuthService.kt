@@ -1,6 +1,7 @@
 package dev.ragnarok.fenrir.api.services
 
 import dev.ragnarok.fenrir.api.model.VKApiValidateAccount
+import dev.ragnarok.fenrir.api.auth.VkIdSession
 import dev.ragnarok.fenrir.api.model.VKApiValidatePhone
 import dev.ragnarok.fenrir.api.model.ecosystem.EcosystemCheckOtp
 import dev.ragnarok.fenrir.api.model.ecosystem.EcosystemGetVerificationMethods
@@ -159,7 +160,7 @@ class IAuthService : IServiceRest() {
         v: String?,
         suffix: String
     ): Flow<BaseResponse<EcosystemSendOtp>> {
-        val finalSuffix = suffix.replaceFirstChar { it.uppercase() }
+        val finalSuffix = VkIdSession.otpSuffix(suffix)
         return rest.request(
             "ecosystem.sendOtp$finalSuffix",
             form(

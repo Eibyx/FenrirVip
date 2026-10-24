@@ -16,6 +16,7 @@ import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
 import com.google.android.material.textview.MaterialTextView
 import dev.ragnarok.fenrir.Extra
+import dev.ragnarok.fenrir.BuildConfig
 import dev.ragnarok.fenrir.R
 import dev.ragnarok.fenrir.activity.captcha.VKCaptcha
 import dev.ragnarok.fenrir.activity.captcha.VKCaptchaResult
@@ -55,6 +56,7 @@ class DirectAuthIdVKDialog : BaseMvpDialogFragment<DirectAuthIdVKPresenter, IDir
         mContentRoot = view.findViewById(R.id.content_root)
         mErrorInfoRoot = view.findViewById(R.id.error_info_container)
         mErrorInfoText = view.findViewById(R.id.error_info_text)
+        mErrorInfoText?.setTextIsSelectable(true)
         mAuthProfileRoot = view.findViewById(R.id.auth_profile_root)
         mAuthProfileAvatar = view.findViewById(R.id.auth_avatar)
         mAuthProfileFirstname = view.findViewById(R.id.auth_firstname)
@@ -99,7 +101,8 @@ class DirectAuthIdVKDialog : BaseMvpDialogFragment<DirectAuthIdVKPresenter, IDir
         }
 
         builder.setView(view)
-        builder.setTitle(R.string.login_title)
+        builder.setTitle(getString(R.string.login_title) + " · " + BuildConfig.VERSION_NAME +
+            " (" + BuildConfig.SOURCE_REVISION.take(8) + ")")
         builder.setIcon(R.drawable.logo_vk)
         val dialog = builder.create()
         dialog.setCancelable(true)

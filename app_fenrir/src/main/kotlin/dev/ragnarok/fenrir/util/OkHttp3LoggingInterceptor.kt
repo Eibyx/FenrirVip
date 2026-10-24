@@ -1,6 +1,7 @@
 package dev.ragnarok.fenrir.util
 
 import dev.ragnarok.fenrir.kJson
+import dev.ragnarok.fenrir.api.auth.AuthFailurePolicy
 import dev.ragnarok.fenrir.kJsonNotPretty
 import dev.ragnarok.fenrir.module.zstd.ZstdJni.zstdDecompress
 import kotlinx.serialization.msgpack.MsgPack
@@ -125,6 +126,9 @@ class OkHttp3LoggingInterceptor @JvmOverloads constructor(
         val level = this.level
 
         val request = chain.request()
+        // Authentication bodies/headers include passwords, OTPs, tokens and session IDs.
+        // Only the separate allowlisted FenrirAuth diagnostics may describe these requests.
+        if (AuthFailurePolicy.suppressBodyLogging(request.url.encodedPath)) return chain.proceed(request)
         if (level == Level.NONE) {
             return chain.proceed(request)
         }

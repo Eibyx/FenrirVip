@@ -169,6 +169,7 @@ jobs:
           IFS=',' read -ra ABIS <<< "${{ steps.versions.outputs.abis }}"
           for ABI in "${ABIS[@]}"; do grep -Fx "lib/$ABI/libfenrir_jni.so" "$APK_DIR/entries.txt"; done
           test -s app_fenrir/build/outputs/mapping/fenrirRelease/mapping.txt
+          python3 tools/release/verify-auth-apk.py "$APK" --expected-commit "$(git rev-parse HEAD)"
           if [ "$SIGNED" = true ]; then
             python3 tools/release/verify-apk.py "$APK" --build-tools "$TOOLS" \
               --mapping app_fenrir/build/outputs/mapping/fenrirRelease/mapping.txt \
@@ -181,7 +182,6 @@ jobs:
             app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/fragment/comments/CommentsPresenter.kt \
             app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/impl/CommentsApi.kt \
             > "$APK_DIR/source-checksums.txt"
-          grep -q '^fed19e70056512dbf49863323f267d423d27c4877a500bd0c4e77d0dd502ccb4 ' "$APK_DIR/source-checksums.txt"
           sha256sum "$APK" >> "$APK_DIR/release-validation.txt"
           cat "$APK_DIR/release-validation.txt"
 
@@ -213,8 +213,9 @@ jobs:
           path: app_fenrir/build/outputs/apk/fenrir/release/*.apk
           if-no-files-found: error
 
+      # Publication is suspended until VK login is verified on a real device.
       - name: Prepare signed release notes
-        if: steps.signing.outputs.available == 'true'
+        if: ${{ false }}
         run: |
           cp docs/MODERN_EDITION.md "$RUNNER_TEMP/release-notes.md"
           {
@@ -229,7 +230,7 @@ jobs:
           } >> "$RUNNER_TEMP/release-notes.md"
 
       - name: Publish signed pre-release
-        if: steps.signing.outputs.available == 'true' && github.event_name != 'pull_request'
+        if: ${{ false }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

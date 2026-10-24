@@ -70,7 +70,7 @@ Después, volver a ejecutar la última ejecución de **Fenrir Modern Release** e
 
 ## Validaciones y sesiones
 
-`verify-apk.py` comprueba integridad ZIP, alineamiento, firma real y pin, paquete `dev.ragnarok.fenrir`, versión del catálogo, español, ausencia de `debuggable`, las tres ABI configuradas y el mapping R8 con autenticación, paginación y ModernAppearance. CI adjunta el reporte, commit y hashes de fuentes; comprueba que DirectAuthIdVKPresenter mantiene la huella de la corrección del SID. Es evidencia de compilación e inclusión; no sustituye probar login o LOAD MORE con VK real.
+`verify-apk.py` comprueba integridad ZIP, alineamiento, firma real y pin, paquete `dev.ragnarok.fenrir`, versión del catálogo, español, ausencia de `debuggable`, las tres ABI configuradas y el mapping R8 con autenticación, paginación y ModernAppearance. CI adjunta el reporte, commit y hashes de fuentes. Tras la nueva investigación de SID, `verify-auth-apk.py` valida la identidad de fuentes embebida contra el commit y las clases DEX; la huella histórica de DirectAuthIdVKPresenter solo corresponde a 95309fc9. Es evidencia de compilación e inclusión; no sustituye probar login o LOAD MORE con VK real. La publicación está suspendida hasta esa validación.
 
 La primera Release propia usa versionCode **1001**, versionName **127-modern.1**, y conserva el paquete. Futuras publicaciones deben incrementar versionCode y usar exactamente la misma keystore. R8 y el recorte de recursos permanecen activados. Las bibliotecas nativas Release utilizadas localmente provienen de la compilación fuente de `7e4c32ef`, ejecución `40113784042`; CI vuelve a compilarlas desde fuente.
 
