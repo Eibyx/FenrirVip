@@ -1129,7 +1129,7 @@ class CommentsPresenter(
                 topicTotal = bundle.totalCount
                 resolveTopicPosition()
                 resolveHeaderFooterViews()
-                view?.scrollToPosition(0)
+                view?.scrollToPosition(if (directionDesc) 0 else maxOf(0, data.size - 1))
             } catch (error: IllegalArgumentException) {
                 setLoadingState(LoadingState.NO)
                 showError(IllegalArgumentException(getString(R.string.topic_position_unavailable)))
