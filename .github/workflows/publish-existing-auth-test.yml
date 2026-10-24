@@ -1,0 +1,137 @@
+name: Publish verified Modern.3 Auth Test APK
+
+on:
+  push:
+    branches: ['release/publish-auth-test-49d99b0d']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-auth-test-49d99b0d
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'Eibyx/FenrirVip'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: Eibyx/FenrirVip
+      APK_NAME: FenrirVip-127-modern.3-auth-test-49d99b0d.apk
+      EXPECTED_APK: 0a58e77f4329204f8c490b601b86595b59d9cf3181885c9dca4796cdd223ee73
+      EXPECTED_CERTIFICATE: ca6ae8f6365d910fbc29424ead8a4528caae11a06bb720eb3f40e0d4be5d032f
+      SOURCE_COMMIT: 49d99b0d4889cf8203922b18327b3a0302dd1688
+      RELEASE_TAG: v127-modern.3-auth-test
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The parent is the application source commit; HEAD only adds publication files.
+          fetch-depth: 2
+
+      # Verification only: no Gradle, app/native compilation, keystore or signing step.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Install APK verification tools
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "build-tools;37.0.0"'
+
+      - name: Verify exact existing signed APK
+        run: |
+          python3 tools/release/verify-auth-apk.py "release_payload/$APK_NAME" --expected-commit "$SOURCE_COMMIT"
+          python3 - <<'PY'
+          import hashlib, os, pathlib, re, subprocess
+          apk = pathlib.Path('release_payload') / os.environ['APK_NAME']
+          assert hashlib.sha256(apk.read_bytes()).hexdigest() == os.environ['EXPECTED_APK']
+          assert apk.stat().st_size == 23595631
+          tools = pathlib.Path(os.environ['ANDROID_HOME'])/'build-tools/37.0.0'
+          signature = subprocess.check_output([str(tools/'apksigner'), 'verify', '--verbose', '--print-certs', str(apk)], text=True)
+          assert re.findall(r'certificate SHA-256 digest: ([0-9a-f]{64})', signature) == [os.environ['EXPECTED_CERTIFICATE']]
+          assert 'key size (bits): 4096' in signature
+          print(signature)
+          subprocess.run([str(tools/'zipalign'), '-c', '-P', '16', '4', str(apk)], check=True)
+          metadata = subprocess.check_output([str(tools/'aapt2'), 'dump', 'badging', str(apk)], text=True)
+          assert "package: name='dev.ragnarok.fenrir' versionCode='1003' versionName='127-modern.3-auth-test'" in metadata
+          assert "'es'" in next(line for line in metadata.splitlines() if line.startswith('locales:'))
+          assert 'application-debuggable' not in metadata
+          PY
+
+      - name: Verify new release target and public payload whitelist
+        id: release
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, subprocess
+          expected = {os.environ['APK_NAME'], os.environ['APK_NAME']+'.sha256', 'modern3-publication-validation.json', 'modern3-build-identity.json', 'modern3-auth-source-validation.json', 'modern3-publication-summary.json'}
+          assert {file.name for file in pathlib.Path('release_payload').iterdir()} == expected
+          release = json.loads(subprocess.check_output(['gh', 'api', 'repos/Eibyx/FenrirVip/releases/423012532']))
+          assert release['tag_name'] == os.environ['RELEASE_TAG']
+          assert release['name'] == 'FenrirVip 127-modern.3 Auth Test'
+          assert release['target_commitish'] == os.environ['SOURCE_COMMIT']
+          assert release['prerelease']
+          assert {file['name'] for file in release['assets']} <= expected
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('draft='+str(release['draft']).lower()+'\n')
+          print('New pre-release points to the application commit; payload contains only public assets.')
+          PY
+
+      - name: Upload the existing signed APK and public reports
+        if: steps.release.outputs.draft == 'true'
+        run: |
+          gh release upload "$RELEASE_TAG" \
+            "release_payload/$APK_NAME" \
+            "release_payload/$APK_NAME.sha256" \
+            release_payload/modern3-publication-validation.json \
+            release_payload/modern3-build-identity.json \
+            release_payload/modern3-auth-source-validation.json \
+            release_payload/modern3-publication-summary.json --clobber
+
+      - name: Verify uploaded assets before publication
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          release = json.loads(subprocess.check_output(['gh', 'api', 'repos/Eibyx/FenrirVip/releases/423012532']))
+          expected = {path.name for path in pathlib.Path('release_payload').iterdir()}
+          assert {asset['name'] for asset in release['assets']} == expected
+          apk = next(asset for asset in release['assets'] if asset['name'] == os.environ['APK_NAME'])
+          assert apk['state'] == 'uploaded' and apk['size'] == 23595631
+          if apk.get('digest'):
+              assert apk['digest'] == 'sha256:'+os.environ['EXPECTED_APK']
+          PY
+          gh release download "$RELEASE_TAG" --pattern "$APK_NAME" --dir "$RUNNER_TEMP/before-publication"
+          python3 - <<'PY'
+          import hashlib, os, pathlib
+          apk = pathlib.Path(os.environ['RUNNER_TEMP'])/'before-publication'/os.environ['APK_NAME']
+          assert hashlib.sha256(apk.read_bytes()).hexdigest() == os.environ['EXPECTED_APK']
+          print('APK downloaded from GitHub matches the original signed file byte for byte.')
+          PY
+
+      - name: Publish the Auth Test pre-release
+        if: steps.release.outputs.draft == 'true'
+        run: gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+
+      - name: Verify published pre-release and exact tag commit
+        run: |
+          python3 - <<'PY'
+          import json, os, subprocess
+          release = json.loads(subprocess.check_output(['gh', 'api', 'repos/Eibyx/FenrirVip/releases/tags/'+os.environ['RELEASE_TAG']]))
+          assert not release['draft'] and release['prerelease'] and release['published_at']
+          assert release['target_commitish'] == os.environ['SOURCE_COMMIT']
+          reference = json.loads(subprocess.check_output(['gh', 'api', 'repos/Eibyx/FenrirVip/git/ref/tags/'+os.environ['RELEASE_TAG']]))['object']
+          for _ in range(5):
+              if reference['type'] == 'commit':
+                  break
+              assert reference['type'] == 'tag'
+              reference = json.loads(subprocess.check_output(['gh', 'api', 'repos/Eibyx/FenrirVip/git/tags/'+reference['sha']]))['object']
+          assert reference['type'] == 'commit' and reference['sha'] == os.environ['SOURCE_COMMIT']
+          apk = next(asset for asset in release['assets'] if asset['name'] == os.environ['APK_NAME'])
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              summary.write('Published pre-release: '+release['html_url']+'\n\n')
+              summary.write('Direct APK: '+apk['browser_download_url']+'\n\n')
+              summary.write('Verified APK SHA-256: '+os.environ['EXPECTED_APK']+'\n')
+          print(release['html_url'])
+          print(apk['browser_download_url'])
+          PY

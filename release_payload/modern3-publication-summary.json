@@ -1,0 +1,76 @@
+{
+  "source_commit": "49d99b0d4889cf8203922b18327b3a0302dd1688",
+  "reported_vk_error": {
+    "method": "auth.validateAccount",
+    "api_code": 14,
+    "source": "user-provided safe diagnostic from cf8ebeaa release"
+  },
+  "tests": [
+    {
+      "name": "dev.ragnarok.fenrir.fragment.comments.TopicCommentsPagerTest",
+      "tests": "20",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.ragnarok.fenrir.api.auth.AccountCaptchaChallengeTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.ragnarok.fenrir.api.auth.VkIdSessionTest",
+      "tests": "31",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "dev.ragnarok.fenrir.api.auth.AccountFailureRegressionTest",
+      "tests": "16",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "vkscript_mock_cases": 19,
+  "spanish_resources": 1534,
+  "real_vk_http_performed": false,
+  "real_device_available": false,
+  "login_success_confirmed": false,
+  "external_private_key_backup_confirmed": false,
+  "apk": "FenrirVip-127-modern.3-auth-test-49d99b0d.apk",
+  "apk_sha256": "0a58e77f4329204f8c490b601b86595b59d9cf3181885c9dca4796cdd223ee73",
+  "certificate_sha256": "ca6ae8f6365d910fbc29424ead8a4528caae11a06bb720eb3f40e0d4be5d032f",
+  "source_identity": {
+    "commit": "49d99b0d4889cf8203922b18327b3a0302dd1688",
+    "auth_sources_verified": 15,
+    "apk_sha256": "0a58e77f4329204f8c490b601b86595b59d9cf3181885c9dca4796cdd223ee73",
+    "authentication_and_modern_dex": true
+  },
+  "local_release_build": "success",
+  "local_release_elapsed": "4m48s",
+  "elf_abis_verified": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86_64"
+  ],
+  "native_aar_source": "Existing source-built Release AAR from Modern Edition CI; native sources and toolchain pins unchanged",
+  "ci_release_run": 40136283730,
+  "ci_debug_run": 40136287019,
+  "ci_debug_conclusion": "success",
+  "ci_debug_remote_log_reviewed": true,
+  "ci_debug_jvm_passes": 72,
+  "old_apk_provenance_negative_check": true,
+  "ci_release_conclusion": "success",
+  "ci_release_remote_log_reviewed": true,
+  "ci_release_jvm_passes": 72,
+  "ci_release_artifact": "fenrir-modern-release-unsigned",
+  "ci_automatic_publication": "skipped",
+  "ci_release_assemble_elapsed": "14m53s",
+  "publication_status_at_verification": "draft; existing APK verified before upload",
+  "publication_rebuild_performed": false,
+  "publication_resigning_performed": false
+}
