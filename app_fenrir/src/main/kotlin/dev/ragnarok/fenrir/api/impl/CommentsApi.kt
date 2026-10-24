@@ -116,14 +116,15 @@ internal class CommentsApi(accountId: Long, provider: IServiceProvider) :
                             "}\n" +
                             "\n" +
                             "if(source_type == \"topic\"){\n" +
-                            "    result = API.board.getComments({\"v\":\"" + Constants.API_VERSION + "\",\"group_id\":positive_group_id, \n" +
+                            "    var topic_params = {\"v\":\"" + Constants.API_VERSION + "\",\"group_id\":positive_group_id, \n" +
                             "        \"topic_id\":source_id, \n" +
                             "        \"need_likes\":\"1\", \n" +
-                            "        \"start_comment_id\":start_comment_id, \n" +
                             "        \"offset\":offset, \n" +
                             "        \"count\":count, \n" +
                             "        \"sort\":sort, \n" +
-                            "        \"extended\":\"1\"});\n" +
+                            "        \"extended\":\"1\"};\n" +
+                            "    if(start_comment_id > 0){ topic_params.start_comment_id = start_comment_id; }\n" +
+                            "    result = API.board.getComments(topic_params);\n" +
                             "}\n" +
                             "\n" +
                             "var first_id = 0;\n" +

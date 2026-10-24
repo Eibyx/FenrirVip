@@ -28,11 +28,12 @@ for (const type of ['topic', 'post', 'photo', 'video']) {
     const result = execute(api,args);
     assert.deepEqual(result.main.items.map(x=>x.id), sort === 'asc' ? [50,70] : [50,30]);
     assert.equal(calls[0].offset,2);
-    assert.equal(calls[0].start_comment_id,null);
+    if(type!=='topic') assert.equal(calls[0].start_comment_id,null);
     assert.equal(calls[0].sort,sort);
     assert.equal(result.admin_level,2);
     if(type==='topic') {
       assert.equal(calls.length,1);
+      assert.equal('start_comment_id' in calls[0],false);
       assert.equal(calls[0].group_id,42);
       assert.equal(calls[0].topic_id,123);
       assert.equal(result.first_id,0);
@@ -47,6 +48,12 @@ for (const type of ['topic', 'post', 'photo', 'video']) {
     checks++;
   }
 }
+let focused;
+execute({board:{getComments:p=>{focused=p;return {count:2,items:[{id:50}]};}}},
+  {source_type:'topic',owner_id:42,source_id:123,offset:-1,count:20,sort:'asc',start_comment_id:50,comment_id:0});
+assert.equal(focused.start_comment_id,50);
+assert.equal(focused.offset,-1);
+checks++;
 for (const main of [{count:0,items:[]},false]) {
   let calls=0;
   const result = execute({board:{getComments:()=>{calls++;return main;}}},
