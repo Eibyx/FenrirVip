@@ -328,12 +328,16 @@ class CommentsPresenter(
 
     private fun loadTopicPage(sort: String, state: Int) {
         if (!topicPager.hasMore(sort)) return
+        val boundary = if (sort == "desc") firstCommentInList?.getObjectId() else lastCommentInList?.getObjectId()
         val loadedIds = data.mapTo(HashSet()) { it.getObjectId() }
         setLoadingState(state)
         actualLoadingDisposable.add(
             flow {
                 var response: CommentsBundle? = null
-                val page = topicPager.load(sort, loadedIds, { it: Comment -> it.getObjectId() }) { offset ->
+                val page = topicPager.load(sort, loadedIds, { it: Comment -> it.getObjectId() }, { comment ->
+                    boundary == null || if (sort == "desc") comment.getObjectId() < boundary
+                    else comment.getObjectId() > boundary
+                }) { offset ->
                     val bundle = interactor.getCommentsPortion(
                         authorId, commented, offset, COUNT,
                         null, commentThread, false, sort

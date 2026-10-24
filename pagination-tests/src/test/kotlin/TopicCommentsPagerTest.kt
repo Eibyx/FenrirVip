@@ -111,6 +111,18 @@ class TopicCommentsPagerTest {
         }
     }
 
+    @Test fun focusedOlderLoadSkipsNewerPagesWithoutShowingWrongSide() = runBlocking {
+        val pager = TopicCommentsPager()
+        pager.initial("asc", 2, 6, true)
+        val offsets = mutableListOf<Int>()
+        val page = pager.load("desc", setOf(70, 80), { it: Int -> it }, { it < 70 }) { offset ->
+            offsets.add(offset)
+            TopicCommentsPager.Page(listOf(100, 90, 80, 70, 60, 40).drop(offset).take(2), 6)
+        }
+        assertEquals(listOf(0, 2, 4), offsets)
+        assertEquals(listOf(60, 40), page.items)
+    }
+
     @Test fun duplicateOnlyPagesAreConsumedInOneLoad() = runBlocking {
         val pager = TopicCommentsPager()
         val offsets = mutableListOf<Int>()

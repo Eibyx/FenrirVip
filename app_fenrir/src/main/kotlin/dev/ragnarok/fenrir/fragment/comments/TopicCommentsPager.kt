@@ -12,12 +12,13 @@ internal class TopicCommentsPager {
         sort: String,
         loadedIds: Set<Int>,
         id: (T) -> Int,
+        accept: (T) -> Boolean = { true },
         request: suspend (Int) -> Page<T>
     ): Page<T> {
         check(hasMore(sort)) { "Topic pagination has reached the end" }
         do {
             val page = request(offset(sort))
-            val fresh = fresh(page.items, loadedIds, id)
+            val fresh = fresh(page.items, loadedIds, id).filter(accept)
             received(sort, page.items.size, page.total, page.items.map(id))
             if (fresh.isNotEmpty() || !hasMore(sort)) return Page(fresh, page.total)
         } while (hasMore(sort))
