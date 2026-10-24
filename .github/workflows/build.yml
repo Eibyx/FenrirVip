@@ -148,6 +148,10 @@ jobs:
           for ABI in "${ABIS[@]}"; do
             grep -Fx "lib/$ABI/libfenrir_jni.so" "$APK_DIR/apk-entries.txt"
           done
+          python3 pagination-tests/check-combined-apk.py "$APK"
+          git rev-parse HEAD >> "$APK_DIR/apk-validation.txt"
+          sha256sum app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/dialog/directauth/DirectAuthIdVKPresenter.kt >> "$APK_DIR/apk-validation.txt"
+          sha256sum app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/fragment/comments/TopicCommentsPager.kt >> "$APK_DIR/apk-validation.txt"
           sha256sum "$APK" >> "$APK_DIR/apk-validation.txt"
           cat "$APK_DIR/apk-validation.txt"
 
