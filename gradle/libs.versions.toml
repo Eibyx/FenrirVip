@@ -10,8 +10,8 @@ appCMake = "4.1.2"
 appMinSDKDevelop = "29"
 appMinSDKNotDevelop = "26"
 appTargetSDK = "37"
-appVersionCode = "1000"
-appVersionName = "127"
+appVersionCode = "1001"
+appVersionName = "127-modern.1"
 
 # Androidx Libraries
 activityVersion = "1.14.0-alpha03"

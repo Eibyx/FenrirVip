@@ -120,9 +120,21 @@ jobs:
           KEY_ALIAS: ${{ secrets.FENRIR_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.FENRIR_KEY_PASSWORD }}
         run: |
+          if { [ -n "$KEYSTORE_BASE64" ] || [ -n "$STORE_PASSWORD" ] || [ -n "$KEY_ALIAS" ] || [ -n "$KEY_PASSWORD" ]; } &&
+             { [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; }; then
+            echo '::error::Release signing secrets are incomplete. Configure all four secrets using the same persistent key.'
+            exit 1
+          fi
           if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ] && [ -n "$KEY_PASSWORD" ]; then
+            umask 077
             printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/fenrir-release.keystore"
             chmod 600 "$RUNNER_TEMP/fenrir-release.keystore"
+            keytool -exportcert -keystore "$RUNNER_TEMP/fenrir-release.keystore" \
+              -alias "$KEY_ALIAS" -storepass:env STORE_PASSWORD > "$RUNNER_TEMP/release-certificate.der"
+            ACTUAL=$(sha256sum "$RUNNER_TEMP/release-certificate.der" | cut -d' ' -f1)
+            EXPECTED=$(tr -d '\r\n' < .github/fenrir-release-certificate.sha256)
+            test "$ACTUAL" = "$EXPECTED" || { echo '::error::Release certificate does not match the pinned FenrirVip identity.'; exit 1; }
+            echo "Public release certificate SHA-256: $ACTUAL"
             echo "FENRIR_KEYSTORE_FILE=$RUNNER_TEMP/fenrir-release.keystore" >> "$GITHUB_ENV"
             echo 'available=true' >> "$GITHUB_OUTPUT"
           else
@@ -157,7 +169,19 @@ jobs:
           IFS=',' read -ra ABIS <<< "${{ steps.versions.outputs.abis }}"
           for ABI in "${ABIS[@]}"; do grep -Fx "lib/$ABI/libfenrir_jni.so" "$APK_DIR/entries.txt"; done
           test -s app_fenrir/build/outputs/mapping/fenrirRelease/mapping.txt
-          if [ "$SIGNED" = true ]; then "$TOOLS/apksigner" verify --verbose --print-certs "$APK"; fi
+          if [ "$SIGNED" = true ]; then
+            python3 tools/release/verify-apk.py "$APK" --build-tools "$TOOLS" \
+              --mapping app_fenrir/build/outputs/mapping/fenrirRelease/mapping.txt \
+              --report "$APK_DIR/signed-release-validation.json"
+          fi
+          git rev-parse HEAD > "$APK_DIR/source-commit.txt"
+          sha256sum \
+            app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/dialog/directauth/DirectAuthIdVKPresenter.kt \
+            app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/fragment/comments/TopicCommentsPager.kt \
+            app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/fragment/comments/CommentsPresenter.kt \
+            app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/impl/CommentsApi.kt \
+            > "$APK_DIR/source-checksums.txt"
+          grep -q '^fed19e70056512dbf49863323f267d423d27c4877a500bd0c4e77d0dd502ccb4 ' "$APK_DIR/source-checksums.txt"
           sha256sum "$APK" >> "$APK_DIR/release-validation.txt"
           cat "$APK_DIR/release-validation.txt"
 
@@ -178,6 +202,9 @@ jobs:
             pagination-tests/build/reports/
             build/reports/
             app_fenrir/build/outputs/apk/fenrir/release/release-validation.txt
+            app_fenrir/build/outputs/apk/fenrir/release/signed-release-validation.json
+            app_fenrir/build/outputs/apk/fenrir/release/source-commit.txt
+            app_fenrir/build/outputs/apk/fenrir/release/source-checksums.txt
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -186,6 +213,21 @@ jobs:
           path: app_fenrir/build/outputs/apk/fenrir/release/*.apk
           if-no-files-found: error
 
+      - name: Prepare signed release notes
+        if: steps.signing.outputs.available == 'true'
+        run: |
+          cp docs/MODERN_EDITION.md "$RUNNER_TEMP/release-notes.md"
+          {
+            echo
+            echo '## Release signing and update compatibility'
+            echo 'This APK uses the independent persistent FenrirVip certificate, not the upstream Fenrir signing identity.'
+            echo 'It cannot replace an upstream-signed installation. Do not uninstall an existing app if preserving its sessions matters.'
+            echo 'Future FenrirVip updates require this same certificate and an equal or greater versionCode; published updates should increase versionCode.'
+            echo "Certificate SHA-256: $(cat .github/fenrir-release-certificate.sha256)"
+            echo "Source commit: $GITHUB_SHA"
+            echo "Source: https://github.com/$GITHUB_REPOSITORY/tree/$GITHUB_SHA"
+          } >> "$RUNNER_TEMP/release-notes.md"
+
       - name: Publish signed pre-release
         if: steps.signing.outputs.available == 'true' && github.event_name != 'pull_request'
         env:
@@ -193,9 +235,10 @@ jobs:
         run: |
           TAG="modern-${{ github.run_number }}-${GITHUB_SHA:0:7}"
           gh release create "$TAG" app_fenrir/build/outputs/apk/fenrir/release/*.apk \
+            app_fenrir/build/outputs/apk/fenrir/release/signed-release-validation.json \
             --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
-            --title "FenrirVip Modern $TAG" --notes-file docs/MODERN_EDITION.md
+            --title "FenrirVip Modern $TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
 
       - name: Remove signing material
         if: always()
-        run: rm -f "$RUNNER_TEMP/fenrir-release.keystore"
+        run: rm -f "$RUNNER_TEMP/fenrir-release.keystore" "$RUNNER_TEMP/release-certificate.der"
