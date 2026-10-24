@@ -119,7 +119,7 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
         when (currentFlow) {
             AuthFlow.VALIDATE_ACCOUNT -> {
                 view?.setNextFlowButtonParams(
-                    !isLoadingNow && !session.busy && !session.blocked,
+                    !isLoadingNow && !session.busy && (!session.blocked || username.trimmedIsNullOrEmpty()),
                     if (username.trimmedIsNullOrEmpty()) R.string.cancel else R.string.next
                 )
             }
@@ -494,7 +494,7 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
             ) else restartAuthFlow(getString(R.string.auth_invalid_response))
             return
         }
-        try { session.challenge(request, error.sid) }
+        try { session.challenge(request, error.sid, error.expiresAtEpochSeconds) }
         catch (missing: VkIdSession.MissingSession) { handleFailure(request, missing); return }
         validationCode = null
         requiredVKIdCaptcha = null
@@ -522,6 +522,10 @@ class DirectAuthIdVKPresenter(savedInstanceState: Bundle?) :
     }
 
     fun fireNextFlowClick() {
+        if (currentFlow == AuthFlow.VALIDATE_ACCOUNT && username.trimmedIsNullOrEmpty()) {
+            view?.cancelAuth()
+            return
+        }
         if (isLoadingNow || session.busy || session.blocked) return
         when (currentFlow) {
             AuthFlow.VALIDATE_ACCOUNT -> doValidateAccount()

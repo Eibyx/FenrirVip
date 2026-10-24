@@ -22,6 +22,7 @@ with zipfile.ZipFile(args.apk) as apk:
     expected_paths = {
         'dialog/directauth/DirectAuthIdVKPresenter.kt', 'dialog/directauth/VkIdDiagnostics.kt',
         'api/auth/VkIdSession.kt', 'api/auth/AuthFailurePolicy.kt', 'api/impl/AuthApi.kt',
+        'api/exceptions/AuthException.kt', 'api/exceptions/NeedValidationException.kt', 'api/rest/HttpException.kt',
         'api/services/IAuthService.kt', 'api/rest/SimplePostHttp.kt', 'util/OkHttp3LoggingInterceptor.kt',
     }
     prefix = 'app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/'

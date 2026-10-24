@@ -1,7 +1,10 @@
 package dev.ragnarok.fenrir.api.auth
 
 /** In-memory request ownership; no SID is persisted, printed or assigned an invented TTL. */
-class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 }) {
+class VkIdSession(
+    private val now: () -> Long = { System.nanoTime() / 1_000_000 },
+    private val epochSeconds: () -> Long = { System.currentTimeMillis() / 1000 }
+) {
     companion object {
         fun otpSuffix(method: String) = when (method) {
             "sms" -> "Sms"
@@ -23,7 +26,7 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
     class Request internal constructor(
         val operation: Operation, val sid: String?, val grant: String? = null,
         val needsCode: Boolean = false, internal val epoch: Long,
-        internal val confirmedExchange: Boolean = false
+        internal val ecosystemExchange: Boolean = false
     ) {
         override fun toString() = "AuthRequest(operation=${operation.name},epoch=$epoch)"
     }
@@ -39,6 +42,7 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
     private var confirmedSid: String? = null
     private var oauthSid: String? = null
     private var oauthGrant: String? = null
+    private var oauthExpiresAt: Long? = null
     private var active: Request? = null
     private var blockedUntil = 0L
     val busy get() = active != null
@@ -52,6 +56,7 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
         confirmedSid = null
         oauthSid = null
         oauthGrant = null
+        oauthExpiresAt = null
         phase = Phase.EMPTY
         changed()
         // A server throttle is not cleared by editing credentials/restarting a local attempt.
@@ -72,6 +77,7 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
 
     fun begin(operation: Operation): Request? {
         if (busy || blocked) return null
+        rejectExpiredChallenge()
         val sid = when (operation) {
             Operation.METHODS -> if (phase == Phase.ACCOUNT) ecosystemSid else null
             Operation.SEND_OTP, Operation.CHECK_OTP ->
@@ -84,6 +90,7 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
 
     fun beginToken(passwordMethod: Boolean, passwordRequired: Boolean): Request? {
         if (busy || blocked) return null
+        rejectExpiredChallenge()
         return when {
             phase == Phase.OAUTH_CHALLENGE -> request(
                 Operation.TOKEN, oauthSid ?: throw MissingSession(), oauthGrant, needsCode = true
@@ -91,11 +98,11 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
             (phase == Phase.ACCOUNT || phase == Phase.OTP) && passwordMethod ->
                 // Preserve the modern /oauth/token contract of the existing client.
                 // This is the fresh account-stage SID, never a leftover OAuth challenge.
-                request(Operation.TOKEN, ecosystemSid, "password")
+                request(Operation.TOKEN, ecosystemSid, "password", ecosystemExchange = ecosystemSid != null)
             phase == Phase.CONFIRMED -> request(
                 Operation.TOKEN, confirmedSid ?: throw MissingSession(),
                 if (passwordRequired) "phone_confirmation_sid" else "without_password",
-                confirmedExchange = true
+                ecosystemExchange = true
             )
             else -> throw MissingSession()
         }
@@ -103,8 +110,8 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
 
     private fun request(
         operation: Operation, sid: String?, grant: String? = null,
-        needsCode: Boolean = false, confirmedExchange: Boolean = false
-    ) = Request(operation, sid, grant, needsCode, epoch, confirmedExchange).also { active = it }
+        needsCode: Boolean = false, ecosystemExchange: Boolean = false
+    ) = Request(operation, sid, grant, needsCode, epoch, ecosystemExchange).also { active = it }
 
     fun isCurrent(request: Request) = active === request && request.epoch == epoch
 
@@ -138,14 +145,16 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
         return true
     }
 
-    fun challenge(request: Request, sid: String?): Boolean {
+    fun challenge(request: Request, sid: String?, expiresAt: Long? = null): Boolean {
         if (!isCurrent(request)) return false
         val next = sid?.takeIf { it.isNotBlank() } ?: throw MissingSession()
+        if (expiresAt != null && expiresAt > 0 && expiresAt <= epochSeconds()) throw MissingSession()
         finish(request)
         ecosystemSid = null
         confirmedSid = null
         oauthSid = next
         oauthGrant = request.grant
+        oauthExpiresAt = expiresAt?.takeIf { it > 0 }
         phase = Phase.OAUTH_CHALLENGE
         changed()
         return true
@@ -167,7 +176,7 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
 
     fun failed(request: Request, explicitCaptcha: Boolean = false, uncertain: Boolean = false): Boolean {
         if (!finish(request)) return false
-        if (!explicitCaptcha && (request.confirmedExchange || uncertain)) reset()
+        if (!explicitCaptcha && (request.ecosystemExchange || uncertain)) reset()
         return true
     }
 
@@ -179,6 +188,13 @@ class VkIdSession(private val now: () -> Long = { System.nanoTime() / 1_000_000 
     }
 
     private fun changed() { revision++; changedAt = now() }
+
+    private fun rejectExpiredChallenge() {
+        if (phase == Phase.OAUTH_CHALLENGE && oauthExpiresAt?.let { it <= epochSeconds() } == true) {
+            reset()
+            throw MissingSession()
+        }
+    }
 
     fun diagnosticState() = "phase=${phase.name} epoch=$epoch sid_revision=$revision " +
         "stage_age_s=${((now() - changedAt) / 1000).coerceAtLeast(0)} busy=$busy blocked=$blocked"

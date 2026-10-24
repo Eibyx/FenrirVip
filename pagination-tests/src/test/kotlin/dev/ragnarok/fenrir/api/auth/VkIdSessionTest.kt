@@ -209,7 +209,7 @@ class VkIdSessionTest {
 
     @Test fun explicitRetryAfterExpiresWithoutStartingAnyAutomaticRequest() {
         var now = 1000L
-        val session = VkIdSession { now }
+        val session = VkIdSession(now = { now })
         session.block(30)
         now += 29999
         assertNull(session.beginAccount())
@@ -223,6 +223,39 @@ class VkIdSessionTest {
         assertEquals(AuthFailurePolicy.Kind.SID_INVALID, AuthFailurePolicy.classify(null, "invalid_grant", "sid is invalid"))
         assertEquals(AuthFailurePolicy.Kind.SID_INVALID, AuthFailurePolicy.classify(null, "sid_expired", null))
         assertEquals(AuthFailurePolicy.Kind.OTHER, AuthFailurePolicy.classify(100, null, "inside validation request"))
+    }
+
+    @Test fun rejectedAccountTokenExchangeDoesNotReuseTheAccountSid() {
+        val session = VkIdSession()
+        account(session)
+        session.failed(session.beginToken(true, true)!!)
+        assertThrows(VkIdSession.MissingSession::class.java) { session.beginToken(true, true) }
+    }
+
+    @Test fun explicitServerExpiryPreventsSubmittingAnExpiredChallenge() {
+        var epoch = 1000L
+        val session = VkIdSession(epochSeconds = { epoch })
+        account(session)
+        session.challenge(session.beginToken(true, true)!!, "oauth-D", expiresAt = 1010)
+        epoch = 1010
+        assertThrows(VkIdSession.MissingSession::class.java) { session.beginToken(true, true) }
+        assertEquals(VkIdSession.Phase.EMPTY, session.phase)
+    }
+
+    @Test fun alreadyExpiredServerChallengeIsNotAccepted() {
+        val session = VkIdSession(epochSeconds = { 1000 })
+        account(session)
+        val token = session.beginToken(true, true)!!
+        assertThrows(VkIdSession.MissingSession::class.java) { session.challenge(token, "oauth-D", 999) }
+    }
+
+    @Test fun absentExpiryDoesNotInventALocalSidTtl() {
+        var epoch = 1000L
+        val session = VkIdSession(epochSeconds = { epoch })
+        account(session)
+        session.challenge(session.beginToken(true, true)!!, "oauth-D")
+        epoch += 24 * 60 * 60
+        assertEquals("oauth-D", session.beginToken(true, true)!!.sid)
     }
 
     @Test fun throttleWinsOverSidTextAndNoFiveHourTtlIsInvented() {

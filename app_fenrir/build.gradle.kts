@@ -24,6 +24,9 @@ val authSourcePaths = listOf(
     "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/auth/VkIdSession.kt",
     "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/auth/AuthFailurePolicy.kt",
     "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/impl/AuthApi.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/exceptions/AuthException.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/exceptions/NeedValidationException.kt",
+    "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/rest/HttpException.kt",
     "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/services/IAuthService.kt",
     "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/api/rest/SimplePostHttp.kt",
     "app_fenrir/src/main/kotlin/dev/ragnarok/fenrir/util/OkHttp3LoggingInterceptor.kt"

@@ -102,7 +102,8 @@ class AuthApi(private val service: IDirectLoginServiceProvider) : IAuthApi {
                             response.validationType,
                             response.redirect_uri,
                             response.validation_sid,
-                            response.errorDescription
+                            response.errorDescription,
+                            response.expired_at.takeIf { it > 0 }
                         )
                     }
 
