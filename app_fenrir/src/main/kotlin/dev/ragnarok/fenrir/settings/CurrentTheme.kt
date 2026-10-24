@@ -22,7 +22,7 @@ import java.io.File
 
 object CurrentTheme {
     private const val KEY_CHAT_BACKGROUND = "chat_background"
-    val playPauseAnimator = createPathAnimator()
+    val playPauseAnimator by lazy { createPathAnimator() }
     private fun createPathAnimator(): PathAnimator {
         val animator = PathAnimator(0.293f, -26f, -28f, 1.0f)
         animator.addSvgKeyFrame(

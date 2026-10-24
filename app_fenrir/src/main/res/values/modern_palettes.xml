@@ -1,0 +1,30 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+  <string name="modern_theme_cold">Cold</string>
+  <string name="modern_theme_cold_gold">Cold Gold</string>
+  <string name="modern_theme_cold_green">Cold Green</string>
+  <string name="modern_theme_coffee_pistachio">Coffee Pistachio</string>
+  <string name="modern_theme_ice">Ice</string>
+  <string name="modern_theme_old_ice">Old Ice</string>
+  <string name="modern_theme_fire">Fire</string>
+  <string name="modern_theme_red">Red</string>
+  <string name="modern_theme_violet">Violet</string>
+  <string name="modern_theme_gray">Gray</string>
+  <string name="modern_theme_yellow_violet">Fire Violet</string>
+  <string name="modern_theme_red_violet">Red Violet</string>
+  <string name="modern_theme_contrast">Contrast</string>
+  <string name="modern_theme_orange">Orange</string>
+  <string name="modern_theme_orange_gray">Orange Gray</string>
+  <string name="modern_theme_violet_gray">Violet Gray</string>
+  <string name="modern_theme_pink_gray">Pink Gray</string>
+  <string name="modern_theme_violet_ice">Violet Ice</string>
+  <string name="modern_theme_ice_green">Ice Green</string>
+  <string name="modern_theme_blue_red">Blue Red</string>
+  <string name="modern_theme_green">Green</string>
+  <string name="modern_theme_lineage">Lineage</string>
+  <string name="modern_theme_fuxia_neon_yellow">Fuxia Neon Yellow</string>
+  <string name="modern_theme_fuxia_neon_violet">Fuxia Neon Violet</string>
+  <string name="modern_theme_neon_yellow_ice">Neon Yellow Ice</string>
+  <string name="modern_theme_random">Random</string>
+  <string name="modern_theme_dynamic">Dynamic</string>
+</resources>

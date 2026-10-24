@@ -12,7 +12,7 @@ The rune strip and looping animal/symbol in wall headers are local `runes_contai
 
 ## Spanish
 
-`values-es/strings.xml` contains 1,450 manually reviewed translations of the main translatable string catalog. `arrays.xml` supplies all 21 translatable option lists; new appearance labels and the previously added topic navigation labels are also localized. The resource check validates 1,493 base resources in total, including printf arguments and array sizes. English and Russian remain available; the existing language selector adds Spanish as value 3. `localeFilters` includes es, so the resources survive APK packaging. Material already includes its own Spanish resources.
+`values-es/strings.xml` contains 1,450 manually reviewed translations of the main translatable string catalog. `arrays.xml` supplies all 21 translatable option lists; new appearance labels and the previously added topic navigation labels are also localized. The resource check validates 1,520 base resources in total, including printf arguments and array sizes. English and Russian remain available; the existing language selector adds Spanish as value 3. `localeFilters` includes es, so the resources survive APK packaging. Material already includes its own Spanish resources.
 
 This is source-resource coverage, not a claim that every screen has been visually reviewed on a device. VK content, external web pages, diagnostic/server messages and proper product names are not translated by the client.
 
@@ -20,7 +20,7 @@ This is source-resource coverage, not a claim that every screen has been visuall
 
 Appearance → Animations offers smooth, reduced and off modes. Android's system animator-disable switch takes precedence. Shared RecyclerViews disable change cross-fades to avoid flashing/rebinding animations; item durations are 180 ms or 80 ms. Off removes list/layout animators, reduced removes layout cascades, and the common MVP fragment uses reduced fades or zero-duration transitions as requested. Native decorative loops stop when hidden or motion is reduced/off.
 
-Community covers are resized to at most the display width before the existing Picasso blur transformation. Hiding a cover cancels its request and clears its background. Compact headers also avoid loading the cover. These remove specific unnecessary allocations/animation work; no measured FPS, battery or startup improvement is claimed. No KVM/device is available for representative Android profiling. Reopen other screens after changing motion settings.
+Community covers are resized to at most the display width before the existing Picasso blur transformation. Hiding a cover cancels its request and clears its background. Compact headers also avoid loading the cover. The shared SVG play/pause animator is created lazily on first use instead of during theme-object initialization. These remove specific unnecessary allocations/animation work; no measured FPS, battery or startup improvement is claimed. No KVM/device is available for representative Android profiling. Reopen other screens after changing motion settings.
 
 ## Existing fixes and sessions
 
@@ -32,7 +32,7 @@ Run `bash gradlew -p pagination-tests test`, `python3 pagination-tests/check-vks
 
 Run `bash gradlew :app_fenrir:assembleFenrirRelease` with the native AAR prepared, or enable the README's source-native variant. Release keeps R8 minification and resource shrinking enabled. CI builds the pinned native sources with the repository's SDK/NDK/CMake versions; it validates ZIP integrity, application ID, Spanish locale, ABI libraries and R8 mapping output. Without signing credentials the output is **unsigned**, unsuitable for installation until signed; it is an artifact, not a published release.
 
-The `Fenrir Modern Release` workflow supports push, PR and workflow_dispatch. Publication requires all four repository Actions secrets:
+The `Fenrir Modern Release` workflow supports push and workflow_dispatch (the existing Build workflow checks PRs). Publication requires all four repository Actions secrets:
 
 - `FENRIR_KEYSTORE_BASE64`: base64 of the existing persistent keystore.
 - `FENRIR_KEYSTORE_PASSWORD`: keystore password.
