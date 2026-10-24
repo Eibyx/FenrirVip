@@ -1,0 +1,38 @@
+{
+  "apk": "FenrirVip-127-modern.2-auth-test-cf8ebeaa.apk",
+  "sha256": "b1983e027dab32d67fcf701cc067ecd38d0451ee333c9baea0b9afb166b1fce4",
+  "bytes": 23585867,
+  "package": "dev.ragnarok.fenrir",
+  "versionCode": "1002",
+  "versionName": "127-modern.2-auth-test",
+  "certificate_sha256": "ca6ae8f6365d910fbc29424ead8a4528caae11a06bb720eb3f40e0d4be5d032f",
+  "abis": [
+    "arm64-v8a",
+    "armeabi-v7a",
+    "x86_64"
+  ],
+  "spanish": true,
+  "r8": true,
+  "zip_integrity": true,
+  "zipalign": true,
+  "signature_verification": [
+    "Verifies",
+    "Verified using v1 scheme (JAR signing): false",
+    "Verified using v2 scheme (APK Signature Scheme v2): true",
+    "Verified using v3 scheme (APK Signature Scheme v3): false",
+    "Verified using v3.1 scheme (APK Signature Scheme v3.1): false",
+    "Verified using v3.2 scheme (APK Signature Scheme v3.2): false",
+    "Verified using v4 scheme (APK Signature Scheme v4): false",
+    "Verified for SourceStamp: false",
+    "Number of signers: 1",
+    "V2 Signer: certificate DN: CN=FenrirVip Release, O=FenrirVip",
+    "V2 Signer: certificate SHA-256 digest: ca6ae8f6365d910fbc29424ead8a4528caae11a06bb720eb3f40e0d4be5d032f",
+    "V2 Signer: certificate SHA-1 digest: 7509b02e74e49bf21dabc20e3958cb746545eb74",
+    "V2 Signer: certificate MD5 digest: e6967afd289204c364783751b7e08d03",
+    "V2 Signer: key algorithm: RSA",
+    "V2 Signer: key size (bits): 4096",
+    "V2 Signer: public key SHA-256 digest: d8d3cadb36d12442f79c6af531fae199c6a81ac4911d1ee41930eedff43a2e89",
+    "V2 Signer: public key SHA-1 digest: 77d9d17a1a6869584dff43ffdda0b648f3af01d0",
+    "V2 Signer: public key MD5 digest: 2b3769476d1f0e8c33fc31c219951755"
+  ]
+}
